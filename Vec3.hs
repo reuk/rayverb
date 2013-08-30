@@ -33,3 +33,6 @@ cross (Vec3 (x1, y1, z1)) (Vec3 (x2, y2, z2)) = Vec3 (xv, yv, zv)
     where   xv  = (y1 * z2) - (z1 * y2)
             yv  = (z1 * x2) - (x1 * z2)
             zv  = (x1 * y2) - (y1 * x2)
+
+reflect n d = d - (2 * n * c)
+    where   c = pure $ dot n d

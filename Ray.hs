@@ -3,6 +3,10 @@ module Ray where
 import Vec3
 
 data Ray = Ray {
-    origin      :: Vec3,
-    direction   :: Vec3
+    position    :: Vec3 Double,
+    direction   :: Vec3 Double
 }
+
+reflection nor int ray = Ray pos dir
+    where   pos = int
+            dir = reflect nor (direction ray)
