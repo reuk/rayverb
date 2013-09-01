@@ -11,7 +11,8 @@ import Data.List
 
 data Reflection = Reflection {
     surface     :: Material,
-    point       :: Vec3 Double
+    point       :: Vec3 Double,
+    norm        :: Vec3 Double
 } deriving (Eq, Show)
 
 trace :: [Primitive] -> Ray -> [Reflection]
@@ -19,8 +20,9 @@ trace primitives ray    | volume ray < vt   = []
                         | c == Nothing      = []
                         | isSource $ f      = ref : []
                         | otherwise         = ref : trace primitives newRay
-    where   ref         = Reflection (material f) (position newRay)
+    where   ref         = Reflection (material f) p (findNormal p f)
             c           = closestPrimitive ray primitives
+            p           = position newRay
             newRay      = reflected ray f
             f           = d c
             d (Just a)  = a

@@ -16,19 +16,30 @@ data Primitive = Sphere {
     distance    :: Double
 } deriving (Eq, Show)
 
-intersection :: Ray -> Primitive -> Maybe Double
-intersection ray (Sphere {origin = o, radius = r})
-    | intersects && i1 < 0  = Just i2
-    | intersects && i1 > 0  = Just i1
-    | otherwise             = Nothing
-    where   intersects      = determinant > 0 && i2 > 0
-            i1              = b - sqdet
-            i2              = b + sqdet
-            determinant     = (b * b) - (dot v v) + (r * r)
-            sqdet           = sqrt determinant
-            b               = - dot v (direction ray)
-            v               = (position ray) - o
+--intersection :: Ray -> Primitive -> Maybe Double
+--intersection ray (Sphere {origin = o, radius = r})
+--    | intersects && i1 < 0  = Just i2
+--    | intersects && i1 > 0  = Just i1
+--    | otherwise             = Nothing
+--    where   intersects      = determinant > 0 && i2 > 0
+--            i1              = b - sqdet
+--            i2              = b + sqdet
+--            determinant     = (b * b) - (dot v v) + (r * r)
+--            sqdet           = sqrt determinant
+--            b               = - dot v (direction ray)
+--            v               = (position ray) - o
 
+intersection ray (Sphere {origin = o, radius = r})
+    | disc > 0      = Just dist
+    | otherwise     = Nothing    
+    where   d       = direction ray
+            p       = position ray
+            a       = dot d d
+            b       = 2 * dot d (p - o)
+            c       = (dot (p - o) (p - o)) - (r * r)
+            disc    = (b * b) - (4 * a * c)
+            dist    = ((-b) - (sqrt disc)) / (2 * a)
+            
 intersection ray (Plane {normal = n, distance = d})
     | intersects    = Just e
     | otherwise     = Nothing
@@ -39,3 +50,6 @@ intersection ray (Plane {normal = n, distance = d})
 findNormal :: Vec3 Double -> Primitive -> Vec3 Double
 findNormal pos (Sphere {origin = o}) = normalize (pos - o)
 findNormal pos (Plane {normal = n}) = n
+
+newSphere = Sphere
+newPlane m n d = Plane m False n d
