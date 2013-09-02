@@ -6,7 +6,7 @@ distance-based attenuation of impulses
 
 materials defined as convolution kernels instead of reflective/diffuse values
 
-    or some other way of introducing frequency modification
+or some other way of introducing frequency modification
 
 possibly specular components for materials if I don't do the convolution thing
 
