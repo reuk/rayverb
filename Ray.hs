@@ -4,8 +4,7 @@ import Vec3
 
 data Ray = Ray {
     position    :: Vec3 Double,
-    direction   :: Vec3 Double,
-    volume      :: Double
+    direction   :: Vec3 Double
 } deriving (Eq, Show)
 
 reflection nor int ray = Ray pos dir

@@ -23,4 +23,4 @@ mic = newCardioid (Vec3 (-50) (-50) (-50)) (Vec3 1 2 3)
 
 r   = traceMic p 1 mic
 
-q   = trace p (Ray (Vec3 (-50) (-50) (-50)) (Vec3 1 3 2) 1)
+i   = map (toImpulses s) r
