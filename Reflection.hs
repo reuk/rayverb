@@ -12,7 +12,9 @@ import Data.List
 data Reflection = Reflection {
     surface     :: Material,
     point       :: Vec3 Double,
-    norm        :: Vec3 Double
+    norm        :: Vec3 Double,
+    dist        :: Double,
+    refVol      :: Double
 } deriving (Eq, Show)
 
 trace :: [Primitive] -> Ray -> [Reflection]
