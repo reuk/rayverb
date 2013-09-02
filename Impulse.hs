@@ -29,3 +29,9 @@ toImpulse s r = Impulse p a
 
 toImpulses :: Primitive -> [Reflection] -> [Impulse]
 toImpulses s r = map (toImpulse s) r
+
+allSourceImpulses :: [Primitive] -> [Reflection] -> [[Impulse]]
+allSourceImpulses s r = map (\x -> toImpulses x r) s
+
+fullTrace :: [[[Reflection]]] -> [Primitive] -> [Impulse]
+fullTrace r p = concat $ allSourceImpulses p (concat $ concat r)
