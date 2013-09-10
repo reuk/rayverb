@@ -27,6 +27,8 @@ toImpulse s r = Impulse p a
     where   p           = floor (samplesPerUnit * d)
             d           = refDist r + difference (point r) (origin s) - (radius s)
             a           = (refVol r) * (dot (norm r) toSource) * (diffuse $ surface r)
+            na          = ((power s) * a) / (d * d)
+            nna         = ((power s) * a) / d
             toSource    = normalize ((origin s) - (point r))
 
 toImpulses :: Primitive -> [Reflection] -> [Impulse]
@@ -55,5 +57,34 @@ correctVolume :: [Double] -> [Double]
 correctVolume d = map (*x) d
     where   x   = 1 / (maximum d)
 
+normalizeMics :: [[Double]] -> [[Double]]
+normalizeMics d = map (map (*x)) d
+    where   x   = 1 / (maximum $ concat d)
+
 samples :: [Impulse] -> [Double]
 samples = correctVolume . convert 0 . sortImpulses
+
+lengthPad :: [[Double]] -> [[Double]]
+lengthPad d = map (pad x) d
+    where   x   = maximum $ map (length) d
+
+pad :: Int -> [Double] -> [Double]
+pad n l = l ++ (take (n - (length l)) $ repeat 0)
+
+multiSamples :: [[Impulse]] -> [[Double]]
+multiSamples = lengthPad . normalizeMics . map (convert 0 . sortImpulses)
+
+--samples :: [Impulse] -> [Double]
+--samples = correctVolume . convert []
+--
+--convert :: [Double] -> [Impulse] -> [Double]
+--convert current []      = current
+--convert current (x:xs)  | spx > l       = convert (current ++ z ++ [ax]) xs
+--                        | otherwise     = convert a xs
+--    where   z       = take (spx - l - 1) $ repeat 0
+--            spx     = samplePosition x
+--            ax      = amplitude x
+--            l       = length current
+--            na      = ax + (current !! spx)
+--            (b, c)  = splitAt (spx - 1) current
+--            a       = b ++ [na] ++ (tail c)

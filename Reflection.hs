@@ -32,6 +32,7 @@ trace primitives dist vol ray   | vol < vt      = []
             newDist             = dist + (difference (position ray) p)
             vt                  = 0.001
 
+reflected :: Ray -> Primitive -> Ray
 reflected ray primitive = Ray pos dir 
     where   pos     = ((Vec3 dist dist dist) * (direction ray)) + position ray
             dist    = fromMaybe 0 $ intersection ray primitive

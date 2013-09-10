@@ -11,3 +11,5 @@ or some other way of introducing frequency modification
 possibly specular components for materials if I don't do the convolution thing
 
 some kind of UI? Maybe?
+
+fix the impulse -> sample algorithm
