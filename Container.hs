@@ -1,11 +1,9 @@
-module Container (C3 (..), C4 (..), fmap, pure, (<*>), foldr, any, all) where
-
-import Prelude hiding (foldr, all, any)
+module Container where
 
 import Control.Applicative
 import Data.Foldable
 
---  
+--
 
 data C3 a = C3 a a a deriving (Eq, Show)
 
@@ -19,6 +17,13 @@ instance Applicative C3 where
 instance Foldable C3 where
     foldr f b (C3 x y z) = f x $ f y $ f z b
 
+instance (Num a) => Num (C3 a) where
+    (+) = (<*>) . (<$>) (+)
+    (-) = (<*>) . (<$>) (-)
+    (*) = (<*>) . (<$>) (*)
+    abs = fmap abs
+    signum = fmap signum
+    fromInteger = pure . fromInteger
 --
 
 data C4 a = C4 a a a a deriving (Eq, Show)
@@ -32,3 +37,11 @@ instance Applicative C4 where
 
 instance Foldable C4 where
     foldr f b (C4 x y z w) = f x $ f y $ f z $ f w b
+
+instance (Num a) => Num (C4 a) where
+    (+) = (<*>) . (<$>) (+)
+    (-) = (<*>) . (<$>) (-)
+    (*) = (<*>) . (<$>) (*)
+    abs = fmap abs
+    signum = fmap signum
+    fromInteger = pure . fromInteger
