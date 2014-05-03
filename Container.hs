@@ -2,6 +2,7 @@ module Container where
 
 import Control.Applicative
 import Data.Foldable
+import ApplicativeBinaryOp
 
 --
 
@@ -18,12 +19,13 @@ instance Foldable C3 where
     foldr f b (C3 x y z) = f x $ f y $ f z b
 
 instance (Num a) => Num (C3 a) where
-    (+) = (<*>) . (<$>) (+)
-    (-) = (<*>) . (<$>) (-)
-    (*) = (<*>) . (<$>) (*)
+    (+) = abop (+)
+    (-) = abop (-)
+    (*) = abop (*)
     abs = fmap abs
     signum = fmap signum
     fromInteger = pure . fromInteger
+
 --
 
 data C4 a = C4 a a a a deriving (Eq, Show)
@@ -39,9 +41,9 @@ instance Foldable C4 where
     foldr f b (C4 x y z w) = f x $ f y $ f z $ f w b
 
 instance (Num a) => Num (C4 a) where
-    (+) = (<*>) . (<$>) (+)
-    (-) = (<*>) . (<$>) (-)
-    (*) = (<*>) . (<$>) (*)
+    (+) = abop (+)
+    (-) = abop (-)
+    (*) = abop (*)
     abs = fmap abs
     signum = fmap signum
     fromInteger = pure . fromInteger

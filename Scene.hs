@@ -1,6 +1,6 @@
 module Scene where
 
-import Prelude hiding (all, concat, maximum)
+import Prelude hiding (all, concat, maximum, foldr)
 
 import Numerical
 import Vec3
@@ -14,6 +14,7 @@ import Impulse
 import Microphone
 import Speaker
 import Container
+import ApplicativeBinaryOp
 
 import Data.Maybe
 import Data.Foldable
@@ -31,7 +32,7 @@ raytrace primitives ray distance volume
             newRay = P.reflectFromPrimitive prim ray
             intersection = position newRay
             newDist = distance + magnitude ((position ray) - intersection)
-            newVol = ((*) . specular) <$> (P.surface prim) <*> volume
+            newVol = abop ((*) . specular) (P.surface prim) volume
             reflect = R.Reflection  (P.surface prim) 
                                     intersection
                                     (P.findNormal prim intersection)
@@ -96,9 +97,7 @@ createChannel samples sampleRate raytraces speaker = do
     getElems u
 
 splitBands :: [VolumeCollection] -> C3 [Flt]
-splitBands [] = pure []
-splitBands (x:xs) =
-    (:) <$> x <*> splitBands xs
+splitBands = foldr (abop (:)) (pure [])
 
 filterBands :: C3 [Flt] -> Flt -> C3 [Flt]
 filterBands (C3 b0 b1 b2) sampleRate = C3 f0 f1 f2
@@ -106,27 +105,23 @@ filterBands (C3 b0 b1 b2) sampleRate = C3 f0 f1 f2
             f1 = bandpass b1 sampleRate 200 2000
             f2 = hipass b2 sampleRate 2000
 
--- there has to be a better way of writing this
-
 compileBands :: C3 [Flt] -> [Flt]
-compileBands (C3 [] [] []) = []
-compileBands (C3 (x:xs) (y:ys) (z:zs)) = (x + y + z) : compileBands (C3 xs ys zs)
+compileBands (C3 a b c) = zipWith3 (\ a b c -> a + b + c) a b c
 
 lopass :: [Flt] -> Flt -> Flt -> [Flt]
-lopass band sampleRate cutoff =
-    lopassWorker band (1 - exp (-2 * pi * cutoff / sampleRate)) 0
+lopass band sampleRate cutoff = out
+    where (out, _) = lopassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) band
 
-lopassWorker :: [Flt] -> Flt -> Flt -> [Flt]
-lopassWorker [] _ _ = []
-lopassWorker (y:ys) a0 state =
-    new : lopassWorker ys a0 new
-    where   new = state + a0 * (y - state)
+lopassWorker :: Flt -> [Flt] -> ([Flt], Flt)
+lopassWorker a0 = foldr (worker a0) ([], 0) 
+    where   worker a0 unit (out, state) = (new:out, new)
+                where   new = state + a0 * (unit - state) 
 
 hipass :: [Flt] -> Flt -> Flt -> [Flt]
 hipass band sampleRate cutoff = zipWith (-) band (lopass band sampleRate cutoff)
 
 bandpass :: [Flt] -> Flt -> Flt -> Flt -> [Flt]
-bandpass band sampleRate lo hi = hipass (lopass band sampleRate hi) sampleRate lo
+bandpass band sampleRate lo = lopass (hipass band sampleRate lo) sampleRate
 
 normalizeChannel :: [Flt] -> [Flt]
 normalizeChannel channel = map (* (0.99 / (maximumBy (compare . abs) channel))) channel
@@ -139,6 +134,6 @@ createAndProcessChannel samples sr raytraces speaker = do
     return $ processChannel sr channel
 
 createAllChannels :: Int -> Flt -> [RayTrace] -> [Speaker] -> IO [[Flt]]
-createAllChannels samples sampleRate raytraces speakers = 
-    mapM (createAndProcessChannel samples sampleRate raytraces) speakers
+createAllChannels samples sampleRate raytraces = 
+    mapM (createAndProcessChannel samples sampleRate raytraces) 
 

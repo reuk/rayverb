@@ -39,15 +39,15 @@ p   = [a, b, c, d, e, f, s]
 
 mic = Mic $ Vec3 (-5) (-5) (-5)
 
-spk = [Speaker (Vec3 0 1 0) 0.5, Speaker (Vec3 0 0 1) 0.5]
+spk = [Speaker (Vec3 0 1 0) 0.5]
 
 sampleRate :: Flt
 sampleRate = 44100.0
 
 main :: IO ()
 main = do
-    r <- traceMic p mic 100000 0.01
+    r <- traceMic p mic 1000 0.01
     channels <- createAllChannels (lastSample sampleRate r) sampleRate r spk
     putWAVEFile "/Users/reuben/Desktop/trial.wav" (WAVE waveheader 
-        (transpose $ map (map doubleToSample) channels))
+        (map (map doubleToSample) (transpose channels)))
     where   waveheader = WAVEHeader 1 (round sampleRate) 16 Nothing

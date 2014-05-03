@@ -1,6 +1,8 @@
 module Vec3 where
 
 import Control.Applicative
+import Data.Foldable
+import ApplicativeBinaryOp
 
 data Vec3 a = Vec3 a a a
     deriving (Eq, Show)
@@ -26,10 +28,13 @@ instance Applicative Vec3 where
     pure x = Vec3 x x x
     Vec3 f g h <*> Vec3 x y z = Vec3 (f x) (g y) (h z)
 
+instance Foldable Vec3 where
+    foldr f b (Vec3 x y z) = f x $ f y $ f z b
+
 instance (Num a) => Num (Vec3 a) where
-    (+) = (<*>) . (<$>) (+)
-    (-) = (<*>) . (<$>) (-)
-    (*) = (<*>) . (<$>) (*)
+    (+) = abop (+)
+    (-) = abop (-)
+    (*) = abop (*)
     abs = fmap abs
     signum = fmap signum
     fromInteger = pure . fromInteger
