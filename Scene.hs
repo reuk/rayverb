@@ -1,6 +1,6 @@
 module Scene where
 
-import Prelude hiding (all, concat, maximum, foldr)
+import Prelude hiding (all, any, concat, maximum, foldr, foldl')
 
 import Numerical
 import Vec3
@@ -16,6 +16,7 @@ import Speaker
 import Container
 import ApplicativeBinaryOp
 
+import Data.List hiding (concat, any, maximum, foldr, foldl')
 import Data.Maybe
 import Data.Foldable
 import Data.Array.IO
@@ -26,7 +27,7 @@ raytrace :: [P.Primitive] -> Ray -> Flt -> VolumeCollection -> [R.Reflection]
 raytrace primitives ray distance volume 
     | isNothing maybeClosest = []
     | primitiveIsSource prim = [reflect]
-    | otherwise = reflect : raytrace primitives newRay newDist newVol 
+    | otherwise = (reflect : raytrace primitives newRay newDist newVol)
     where   maybeClosest = P.closest ray primitives
             prim = fromJust maybeClosest
             newRay = P.reflectFromPrimitive prim ray
@@ -53,7 +54,7 @@ toImpulsesAllSources primitives reflection =
 traceToImpulse :: [P.Primitive] -> Ray -> Flt -> [Impulse]
 traceToImpulse primitives ray threshold = 
     concat $ map (toImpulsesAllSources (getSources primitives)) reflections
-    where   reflections = takeWhile (\ x -> all (> threshold) (R.volume x)) 
+    where   reflections = takeWhile (any (> threshold) . R.volume)
                                     (raytrace primitives ray 0 (pure 1))
 
 data RayTrace = RayTrace Vec [Impulse]
@@ -114,19 +115,25 @@ lopass band sampleRate cutoff = out
 
 lopassWorker :: Flt -> [Flt] -> ([Flt], Flt)
 lopassWorker a0 = foldr (worker a0) ([], 0) 
-    where   worker a0 unit (out, state) = (new:out, new)
+    where   worker a0 unit (out, state) = new `seq` (new:out, new)
                 where   new = state + a0 * (unit - state) 
 
 hipass :: [Flt] -> Flt -> Flt -> [Flt]
-hipass band sampleRate cutoff = zipWith (-) band (lopass band sampleRate cutoff)
+hipass band sampleRate cutoff = zipWith' (-) band (lopass band sampleRate cutoff)
+    where   zipWith' f x y = zipWith f (evl x) (evl y)
+                where   evl [] = []
+                        evl (x:xs) = x `seq` (x : evl xs)
 
 bandpass :: [Flt] -> Flt -> Flt -> Flt -> [Flt]
 bandpass band sampleRate lo = lopass (hipass band sampleRate lo) sampleRate
 
-normalizeChannel :: [Flt] -> [Flt]
-normalizeChannel channel = map (* (0.99 / (maximumBy (compare . abs) channel))) channel
+normalizeChannels :: [[Flt]] -> [[Flt]]
+normalizeChannels channels = map (map (* (0.99 / maxAmp))) channels
+    where   maxAmp = maxAbs (map maxAbs channels)
 
-processChannel sr channel = normalizeChannel $ hipass (compileBands (filterBands (splitBands channel) sr)) sr 20
+maxAbs = foldl1' (max . abs)
+
+processChannel sr channel = hipass (compileBands (filterBands (splitBands channel) sr)) sr 20
 
 createAndProcessChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO [Flt]
 createAndProcessChannel samples sr raytraces speaker = do 
@@ -134,6 +141,7 @@ createAndProcessChannel samples sr raytraces speaker = do
     return $ processChannel sr channel
 
 createAllChannels :: Int -> Flt -> [RayTrace] -> [Speaker] -> IO [[Flt]]
-createAllChannels samples sampleRate raytraces = 
-    mapM (createAndProcessChannel samples sampleRate raytraces) 
+createAllChannels samples sampleRate raytraces speakers = do
+    a <- mapM (createAndProcessChannel samples sampleRate raytraces) speakers
+    return $ normalizeChannels a
 

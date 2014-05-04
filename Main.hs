@@ -12,42 +12,43 @@ import Container
 import Data.WAVE
 import Data.List
 
-a   = constructPlane (C3 (Material 0.95 0.95)
-                         (Material 0.85 0.85)
-                         (Material 0.75 0.75)) (Vec3 1 0 0) (50)
-b   = constructPlane (C3 (Material 0.95 0.95) 
-                         (Material 0.85 0.85)
-                         (Material 0.75 0.75)) (Vec3 1 0 0) (-50)
-c   = constructPlane (C3 (Material 0.95 0.95) 
-                         (Material 0.85 0.85)
-                         (Material 0.75 0.75)) (Vec3 0 1 0) (10)
-d   = constructPlane (C3 (Material 0.95 0.95) 
-                         (Material 0.85 0.85)
-                         (Material 0.75 0.75)) (Vec3 0 1 0) (-10)
-e   = constructPlane (C3 (Material 0.95 0.95) 
-                         (Material 0.85 0.85)
-                         (Material 0.75 0.75)) (Vec3 0 0 1) (10)
-f   = constructPlane (C3 (Material 0.95 0.95) 
-                         (Material 0.85 0.85)
-                         (Material 0.75 0.75)) (Vec3 0 0 1) (-10)
-
-s   = constructSphere (C3 (Material 1 1) 
-                          (Material 1 1)
-                          (Material 1 1)) True (Vec3 40 5 5) 1
-
-p   = [a, b, c, d, e, f, s]
+primitives =    [ constructPlane (C3 (Material 0.95 0.95)
+                                     (Material 0.85 0.85)
+                                     (Material 0.75 0.75)) (Vec3 1 0 0) (50)
+                , constructPlane (C3 (Material 0.95 0.95) 
+                                     (Material 0.85 0.85)
+                                     (Material 0.75 0.75)) (Vec3 1 0 0) (-50)
+                , constructPlane (C3 (Material 0.95 0.95) 
+                                     (Material 0.85 0.85)
+                                     (Material 0.75 0.75)) (Vec3 0 1 0) (10)
+                , constructPlane (C3 (Material 0.95 0.95) 
+                                     (Material 0.85 0.85)
+                                     (Material 0.75 0.75)) (Vec3 0 1 0) (-10)
+                , constructPlane (C3 (Material 0.95 0.95) 
+                                     (Material 0.85 0.85)
+                                     (Material 0.75 0.75)) (Vec3 0 0 1) (10)
+                , constructPlane (C3 (Material 0.95 0.95) 
+                                     (Material 0.85 0.85)
+                                     (Material 0.75 0.75)) (Vec3 0 0 1) (-10)
+                  
+                , constructSphere (C3 (Material 1 1) 
+                                      (Material 1 1)
+                                      (Material 1 1)) True (Vec3 40 5 5) 1
+                ]
 
 mic = Mic $ Vec3 (-5) (-5) (-5)
 
-spk = [Speaker (Vec3 0 1 0) 0.5]
+spk = [Speaker (Vec3 0 1 0) 0.5, Speaker (Vec3 1 0 0) 0.5]
 
 sampleRate :: Flt
 sampleRate = 44100.0
 
-main :: IO ()
-main = do
-    r <- traceMic p mic 1000 0.01
-    channels <- createAllChannels (lastSample sampleRate r) sampleRate r spk
-    putWAVEFile "/Users/reuben/Desktop/trial.wav" (WAVE waveheader 
+rayverb primitives mic spk rays threshold sr filename = do
+    r <- traceMic primitives mic rays threshold
+    channels <- createAllChannels (lastSample sr r) sampleRate r spk
+    putWAVEFile filename (WAVE waveheader 
         (map (map doubleToSample) (transpose channels)))
-    where   waveheader = WAVEHeader 1 (round sampleRate) 16 Nothing
+    where   waveheader = WAVEHeader (length spk) (round sampleRate) 16 Nothing
+    
+main :: IO ()
+main = rayverb primitives mic spk 1000 0.01 44100 "/Users/reuben/Desktop/out.wav"

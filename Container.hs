@@ -6,7 +6,8 @@ import ApplicativeBinaryOp
 
 --
 
-data C3 a = C3 a a a deriving (Eq, Show)
+data C3 a = C3 a a a 
+    deriving (Eq, Show)
 
 instance Functor C3 where
     fmap f (C3 a b c) = C3 (f a) (f b) (f c)
@@ -28,7 +29,8 @@ instance (Num a) => Num (C3 a) where
 
 --
 
-data C4 a = C4 a a a a deriving (Eq, Show)
+data C4 a = C4 a a a a 
+    deriving (Eq, Show)
 
 instance Functor C4 where
     fmap f (C4 a b c d) = C4 (f a) (f b) (f c) (f d)
