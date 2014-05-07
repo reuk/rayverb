@@ -1,6 +1,6 @@
 module Scene where
 
-import Prelude hiding (all, any, concat, maximum, foldr, foldl', mapM_)
+import Prelude hiding (all, any, concat, concatMap, maximum, foldr, mapM_)
 
 import Numerical
 import Vec3 hiding (normalize)
@@ -16,7 +16,7 @@ import Speaker
 import Container
 import ApplicativeBinaryOp
 
-import Data.List hiding (concat, any, maximum, foldr, foldl')
+import Data.List hiding (concat, concatMap, any, maximum, foldr, foldl')
 import Data.Maybe
 import Data.Foldable
 import Data.Array.IO
@@ -27,12 +27,12 @@ raytrace :: [P.Primitive] -> Ray -> Flt -> VolumeCollection -> [R.Reflection]
 raytrace primitives ray distance volume 
     | isNothing maybeClosest = []
     | primitiveIsSource prim = [reflect]
-    | otherwise = (reflect : raytrace primitives newRay newDist newVol)
+    | otherwise = reflect : raytrace primitives newRay newDist newVol
     where   maybeClosest = P.closest ray primitives
             prim = fromJust maybeClosest
             newRay = P.reflectFromPrimitive prim ray
             intersection = position newRay
-            newDist = distance + magnitude ((position ray) - intersection)
+            newDist = distance + magnitude (position ray - intersection)
             newVol = abop ((*) . specular) (P.surface prim) volume
             reflect = R.Reflection  (P.surface prim) 
                                     intersection
@@ -49,11 +49,11 @@ getSources = filter primitiveIsSource
 
 toImpulsesAllSources :: [P.Primitive] -> R.Reflection -> [Impulse]
 toImpulsesAllSources primitives reflection = 
-    map (\ x -> constructImpulse x reflection) primitives
+    map (`constructImpulse` reflection) primitives
 
 traceToImpulse :: [P.Primitive] -> Ray -> Flt -> [Impulse]
 traceToImpulse primitives ray threshold = 
-    concat $ map (toImpulsesAllSources (getSources primitives)) reflections
+    concatMap (toImpulsesAllSources (getSources primitives)) reflections
     where   reflections = takeWhile (any (> threshold) . R.volume)
                                     (raytrace primitives ray 0 (pure 1))
 
@@ -77,11 +77,11 @@ trimRayTraces samples sampleRate =
 
 channelUpdateLoop :: Flt -> Flt -> [Impulse] -> IOArray Int VolumeCollection -> IO ()
 channelUpdateLoop sr coeff impulses arr = 
-    mapM_ (\ x -> writeArray arr (timeInSamples sr x) ((pure coeff) * (amplitude x))) impulses
+    mapM_ (\ x -> writeArray arr (timeInSamples sr x) (pure coeff * amplitude x)) impulses
 
 channelForRayTrace :: Flt -> RayTrace -> Speaker -> IOArray Int VolumeCollection -> IO ()
-channelForRayTrace sampleRate (RayTrace dir impulses) speaker arr = 
-    channelUpdateLoop sampleRate (attenuation speaker dir) impulses arr
+channelForRayTrace sampleRate (RayTrace dir impulses) speaker = 
+    channelUpdateLoop sampleRate (attenuation speaker dir) impulses 
 
 channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int VolumeCollection -> IO ()
 channelForAllRayTraces sampleRate raytrace speaker arr = 
@@ -95,9 +95,9 @@ createChannel samples sampleRate raytraces speaker = do
 
 splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
 splitBands vc = do
-    b0 <- mapArray c3_0 vc
-    b1 <- mapArray c3_1 vc
-    b2 <- mapArray c3_2 vc
+    b0 <- mapArray c30 vc
+    b1 <- mapArray c31 vc
+    b2 <- mapArray c32 vc
     return $ C3 b0 b1 b2
 
 filterBands :: Flt -> C3 (IOArray Int Flt) -> IO ()

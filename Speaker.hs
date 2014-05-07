@@ -28,7 +28,7 @@ azimuth (Speaker (Vec3 x y z) _) = atan2 z x
 
 polarToCartesian :: Flt -> Flt -> Vec
 polarToCartesian inclination azimuth = 
-    Vec3    ((sin inclination) * (cos azimuth))
+    Vec3    (sin inclination * cos azimuth)
             (cos inclination)
-            ((sin inclination) * (sin azimuth))
+            (sin inclination * sin azimuth)
 

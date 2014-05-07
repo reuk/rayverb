@@ -17,9 +17,9 @@ constructRaysFromMic (Mic position) = do
     gen1 <- newStdGen
     gen2 <- newStdGen
     return $ map (Ray position) $ zipWith unitVectorFromAngles 
-                                  (randomRs ((-1), 1) gen1)
+                                  (randomRs (-1, 1) gen1)
                                   (randomRs (-pi, pi) gen2)
 
 unitVectorFromAngles :: Flt -> Flt -> Vec
-unitVectorFromAngles r phi = Vec3 (z2 * (cos phi)) (z2 * (sin phi)) r
+unitVectorFromAngles r phi = Vec3 (z2 * cos phi) (z2 * sin phi) r
     where   z2 = sqrt (1.0 - (r * r))

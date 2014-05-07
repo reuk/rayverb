@@ -27,14 +27,6 @@ data Primitive = Sphere     {   surface :: Surface
                             ,   normal :: Vec
                             }   deriving (Eq, Show)
 
-constructSphere :: Surface -> Bool -> Vec -> Flt -> Primitive
-constructSphere surface isSource origin radius = 
-    Sphere surface isSource origin radius
-
-constructPlane :: Surface -> Vec -> Flt -> Primitive
-constructPlane surface normal distance =
-    Plane surface normal distance
-
 constructTriangle :: Surface -> Vec -> Vec -> Vec -> Primitive
 constructTriangle surface v0 v1 v2 = 
     Triangle surface v0 v1 v2 e0 e1 (normalize (cross e0 e1))
@@ -54,7 +46,7 @@ intersection (Sphere _ _ origin radius) (Ray position direction) =
     where   disc = (b * b) - (4 * a * c)
             a = dot direction direction
             b = 2 * dot direction pSubOrigin
-            c = (dot pSubOrigin pSubOrigin) - (radius * radius)
+            c = dot pSubOrigin pSubOrigin - (radius * radius)
             pSubOrigin = position - origin
 intersection (Plane _ normal distance) (Ray position direction) =
     if det /= 0 && e > 0
@@ -88,6 +80,6 @@ reflectFromPrimitive prim ray@(Ray position direction) = reflectRay ray nor pos
 closest :: Ray -> [Primitive] -> Maybe Primitive
 closest r primitives =
     if null filtered then Nothing else Just closest
-    where   zipped = zip primitives (map (\ x -> intersection x r) primitives)
+    where   zipped = zip primitives (map (`intersection` r) primitives)
             filtered = filter (\ (_, x) -> isJust x && fromJust x > 0.00001) zipped
             (closest, _) = minimumBy (\ (_, x) (_, y) -> compare x y) filtered

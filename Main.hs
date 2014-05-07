@@ -1,6 +1,6 @@
 module Main where
 
-import Prelude hiding (all, any, concat, maximum, foldr, foldl')
+import Prelude hiding (all, any, concat, maximum, foldr)
 
 import Numerical
 import Vec3
@@ -19,29 +19,30 @@ import Control.Applicative
 import Data.Foldable
 import Data.List hiding (concat, any, maximum, foldr, foldl')
 import Data.Array.IO
+import System.Environment
 
-primitives =    [ constructPlane (C3 (Material 0.95 0.95)
-                                     (Material 0.85 0.85)
-                                     (Material 0.75 0.75)) (Vec3 1 0 0) (50)
-                , constructPlane (C3 (Material 0.95 0.95) 
-                                     (Material 0.85 0.85)
-                                     (Material 0.75 0.75)) (Vec3 1 0 0) (-50)
-                , constructPlane (C3 (Material 0.95 0.95) 
-                                     (Material 0.85 0.85)
-                                     (Material 0.75 0.75)) (Vec3 0 1 0) (10)
-                , constructPlane (C3 (Material 0.95 0.95) 
-                                     (Material 0.85 0.85)
-                                     (Material 0.75 0.75)) (Vec3 0 1 0) (-10)
-                , constructPlane (C3 (Material 0.95 0.95) 
-                                     (Material 0.85 0.85)
-                                     (Material 0.75 0.75)) (Vec3 0 0 1) (10)
-                , constructPlane (C3 (Material 0.95 0.95) 
-                                     (Material 0.85 0.85)
-                                     (Material 0.75 0.75)) (Vec3 0 0 1) (-10)
+primitives =    [ Plane (C3 (Material 0.95 0.95)
+                            (Material 0.85 0.85)
+                            (Material 0.75 0.75)) (Vec3 1 0 0) 50
+                , Plane (C3 (Material 0.95 0.95) 
+                            (Material 0.85 0.85)
+                            (Material 0.75 0.75)) (Vec3 1 0 0) (-50)
+                , Plane (C3 (Material 0.95 0.95) 
+                            (Material 0.85 0.85)
+                            (Material 0.75 0.75)) (Vec3 0 1 0) 10
+                , Plane (C3 (Material 0.95 0.95) 
+                            (Material 0.85 0.85)
+                            (Material 0.75 0.75)) (Vec3 0 1 0) (-10)
+                , Plane (C3 (Material 0.95 0.95) 
+                            (Material 0.85 0.85)
+                            (Material 0.75 0.75)) (Vec3 0 0 1) 10
+                , Plane (C3 (Material 0.95 0.95) 
+                            (Material 0.85 0.85)
+                            (Material 0.75 0.75)) (Vec3 0 0 1) (-10)
                   
-                , constructSphere (C3 (Material 1 1) 
-                                      (Material 1 1)
-                                      (Material 1 1)) True (Vec3 40 5 5) 1
+                , Sphere (C3 (Material 1 1) 
+                             (Material 1 1)
+                             (Material 1 1)) True (Vec3 40 5 5) 1
                 ]
 
 mic = Mic $ Vec3 (-5) (-5) (-5)
@@ -59,5 +60,8 @@ rayverb primitives mic spk rays threshold sr filename = do
     where   waveheader = WAVEHeader (length spk) (round sampleRate) 16 Nothing
     
 main :: IO ()
-main = rayverb primitives mic spk 1000 0.01 44100 "/Users/reuben/Desktop/out.wav"
-
+main = do
+    args <- getArgs
+    case length args of
+        1 -> rayverb primitives mic spk 100 0.01 44100 $ head args
+        otherwise -> putStrLn "rayverb takes one argument"

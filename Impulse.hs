@@ -23,6 +23,6 @@ constructImpulse source r =
             then R.volume r
             else pure (dot (R.normal r) (normalize diff)) * R.volume r * fmap diffuse (R.surface r)
         )
-    where   diff = (P.origin source) - (R.position r)
+    where   diff = P.origin source - R.position r
 
 timeInSamples sampleRate impulse = round (sampleRate * time impulse)
