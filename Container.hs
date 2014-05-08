@@ -27,6 +27,10 @@ instance (Num a) => Num (C3 a) where
     signum = fmap signum
     fromInteger = pure . fromInteger
 
+c3_0 (C3 x _ _) = x
+c3_1 (C3 _ x _) = x
+c3_2 (C3 _ _ x) = x
+
 --
 
 data C4 a = C4 a a a a 

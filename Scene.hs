@@ -3,7 +3,7 @@ module Scene where
 import Prelude hiding (all, any, concat, maximum, foldr, foldl', mapM_)
 
 import Numerical
-import Vec3
+import Vec3 hiding (normalize)
 import Positionable
 import Directionable
 import Ray
@@ -87,12 +87,6 @@ channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int VolumeColl
 channelForAllRayTraces sampleRate raytrace speaker arr = 
     mapM_ (\ x -> channelForRayTrace sampleRate x speaker arr) raytrace
 
-createChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO [VolumeCollection]
-createChannel samples sampleRate raytraces speaker = do
-    t <- newArray (0, samples) (pure 0)
-    channelForAllRayTraces sampleRate raytraces speaker t
-    getElems t
-
 createChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int VolumeCollection)
 createChannel samples sampleRate raytraces speaker = do
     t <- newArray (0, samples) (pure 0)
@@ -101,9 +95,9 @@ createChannel samples sampleRate raytraces speaker = do
 
 splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
 splitBands vc = do
-    b0 <- mapArray (\ (C3 x _ _) -> x `seq` x) vc
-    b1 <- mapArray (\ (C3 _ x _) -> x `seq` x) vc
-    b2 <- mapArray (\ (C3 _ _ x) -> x `seq` x) vc
+    b0 <- mapArray c3_0 vc
+    b1 <- mapArray c3_1 vc
+    b2 <- mapArray c3_2 vc
     return $ C3 b0 b1 b2
 
 filterBands :: Flt -> C3 (IOArray Int Flt) -> IO ()
