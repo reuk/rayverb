@@ -1,6 +1,6 @@
 module Scene where
 
-import Prelude hiding (all, any, concat, maximum, foldr, foldl')
+import Prelude hiding (all, any, concat, maximum, foldr, foldl', mapM_)
 
 import Numerical
 import Vec3
@@ -75,27 +75,23 @@ trimRayTraces :: Int -> Flt -> [RayTrace] -> [RayTrace]
 trimRayTraces samples sampleRate =
     map (\ (RayTrace d i) -> RayTrace d $ filter ((>) samples . timeInSamples sampleRate) i) 
 
-channelUpdateLoop :: Flt -> Flt -> [Impulse] -> IOArray Int VolumeCollection -> IO (IOArray Int VolumeCollection)
-channelUpdateLoop _ _ [] arr = return arr
-channelUpdateLoop sampleRate coeff (x:xs) arr = do
-    writeArray arr (timeInSamples sampleRate x) ((pure coeff) * (amplitude x))
-    channelUpdateLoop sampleRate coeff xs arr
+channelUpdateLoop :: Flt -> Flt -> [Impulse] -> IOArray Int VolumeCollection -> IO ()
+channelUpdateLoop sr coeff impulses arr = 
+    mapM_ (\ x -> writeArray arr (timeInSamples sr x) ((pure coeff) * (amplitude x))) impulses
 
-channelForRayTrace :: Flt -> RayTrace -> Speaker -> IOArray Int VolumeCollection -> IO (IOArray Int VolumeCollection)
+channelForRayTrace :: Flt -> RayTrace -> Speaker -> IOArray Int VolumeCollection -> IO ()
 channelForRayTrace sampleRate (RayTrace dir impulses) speaker arr = 
     channelUpdateLoop sampleRate (attenuation speaker dir) impulses arr
 
-channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int VolumeCollection -> IO (IOArray Int VolumeCollection)
-channelForAllRayTraces _ [] _ arr = return arr
-channelForAllRayTraces sampleRate (x:xs) speaker arr = do
-    channelForRayTrace sampleRate x speaker arr
-    channelForAllRayTraces sampleRate xs speaker arr
+channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int VolumeCollection -> IO ()
+channelForAllRayTraces sampleRate raytrace speaker arr = 
+    mapM_ (\ x -> channelForRayTrace sampleRate x speaker arr) raytrace
 
 createChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO [VolumeCollection]
 createChannel samples sampleRate raytraces speaker = do
     t <- newArray (0, samples) (pure 0)
-    u <- channelForAllRayTraces sampleRate raytraces speaker t
-    getElems u
+    channelForAllRayTraces sampleRate raytraces speaker t
+    getElems t
 
 splitBands :: [VolumeCollection] -> C3 [Flt]
 splitBands = foldr (abop (:)) (pure [])
