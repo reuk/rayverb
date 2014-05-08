@@ -16,9 +16,6 @@ instance Positionable Ray where
 instance Directionable Ray where
     direction (Ray _ x) = x
 
-constructRay :: Vec -> Vec -> Ray
-constructRay position direction = Ray position direction
-
-reflectRay ray normal intersection = constructRay intersection 
+reflectRay ray normal intersection = Ray intersection 
                                    $ reflect normal 
                                    $ direction ray

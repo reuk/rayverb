@@ -1,5 +1,7 @@
 module Main where
 
+import Prelude hiding (all, any, concat, maximum, foldr, foldl')
+
 import Numerical
 import Vec3
 import Scene
@@ -10,7 +12,12 @@ import Material
 import Container
 
 import Data.WAVE
-import Data.List
+
+import Reflection
+import Ray
+import Control.Applicative
+import Data.Foldable
+import Data.List hiding (concat, any, maximum, foldr, foldl')
 
 primitives =    [ constructPlane (C3 (Material 0.95 0.95)
                                      (Material 0.85 0.85)
@@ -52,3 +59,9 @@ rayverb primitives mic spk rays threshold sr filename = do
     
 main :: IO ()
 main = rayverb primitives mic spk 1000 0.01 44100 "/Users/reuben/Desktop/out.wav"
+
+-- main = do
+--     r <- traceMic primitives mic 1000 0.01
+--     channel <- createChannel (lastSample sampleRate r) sampleRate r (head spk)
+--     print $ show channel
+
