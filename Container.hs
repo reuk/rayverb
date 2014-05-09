@@ -3,6 +3,7 @@ module Container where
 import Control.Applicative
 import Data.Foldable
 import ApplicativeBinaryOp
+import Control.DeepSeq
 
 --
 
@@ -26,6 +27,9 @@ instance (Num a) => Num (C3 a) where
     abs = fmap abs
     signum = fmap signum
     fromInteger = pure . fromInteger
+
+instance (NFData a) => NFData (C3 a) where
+    rnf x = (fmap rnf x) `seq` ()
 
 c30 (C3 x _ _) = x
 c31 (C3 _ x _) = x
@@ -53,3 +57,6 @@ instance (Num a) => Num (C4 a) where
     abs = fmap abs
     signum = fmap signum
     fromInteger = pure . fromInteger
+
+instance (NFData a) => NFData (C4 a) where
+    rnf x = (fmap rnf x) `seq` ()

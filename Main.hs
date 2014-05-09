@@ -63,5 +63,5 @@ main :: IO ()
 main = do
     args <- getArgs
     case length args of
-        1 -> rayverb primitives mic spk 100 0.01 44100 $ head args
+        1 -> rayverb primitives mic spk 1000 0.01 44100 $ head args
         otherwise -> putStrLn "rayverb takes one argument"

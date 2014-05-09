@@ -22,6 +22,7 @@ import Data.Foldable
 import Data.Array.IO
 import Control.Applicative
 import Debug.Trace
+import Control.DeepSeq
 
 raytrace :: [P.Primitive] -> Ray -> Flt -> VolumeCollection -> [R.Reflection]
 raytrace primitives ray distance volume 
@@ -93,25 +94,40 @@ createChannel samples sampleRate raytraces speaker = do
     channelForAllRayTraces sampleRate raytraces speaker t
     return t
 
+evalArray arr = do
+    (min, max) <- getBounds arr
+    worker min max
+        where   worker index max
+                    | index > max = return ()
+                    | otherwise = do
+                        val <- readArray arr index
+                        deepseq val $ worker (index + 1) max
+
 splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
 splitBands vc = do
     b0 <- mapArray c30 vc
+    evalArray b0
     b1 <- mapArray c31 vc
+    evalArray b1
     b2 <- mapArray c32 vc
+    evalArray b2
     return $ C3 b0 b1 b2
 
 filterBands :: Flt -> C3 (IOArray Int Flt) -> IO ()
 filterBands sampleRate (C3 b0 b1 b2) = do
     lopass sampleRate 200 b0
+    evalArray b0
     bandpass sampleRate 200 2000 b1
+    evalArray b1
     hipass sampleRate 2000 b2
-    return ()
+    evalArray b2
 
 compileBands :: C3 (IOArray Int Flt) -> IO (IOArray Int Flt)
 compileBands (C3 b0 b1 b2) = do
     (min, max) <- getBounds b0
     out <- newArray (min, max) 0.0
     worker b0 b1 b2 out min max
+    evalArray out
     return out
         where   worker b0 b1 b2 out index max
                     | index > max = return ()
@@ -126,6 +142,7 @@ lopass :: Flt -> Flt -> IOArray Int Flt -> IO ()
 lopass sampleRate cutoff band = do
     (min, max) <- getBounds band
     lopassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
+    evalArray band
     where   lopassWorker a0 index maxIndex state band
                 | index > maxIndex = return ()
                 | otherwise = do
@@ -138,6 +155,7 @@ hipass :: Flt -> Flt -> IOArray Int Flt -> IO ()
 hipass sampleRate cutoff band = do
     (min, max) <- getBounds band
     hipassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
+    evalArray band
     where   hipassWorker a0 index maxIndex state band
                 | index > maxIndex = return()
                 | otherwise = do
@@ -148,7 +166,9 @@ hipass sampleRate cutoff band = do
 
 bandpass sampleRate lo hi band = do
     lopass sampleRate hi band
+    evalArray band
     hipass sampleRate lo band
+    evalArray band
 
 normalize :: [IOArray Int Flt] -> IO ()
 normalize channels = do
@@ -171,6 +191,7 @@ setGain :: Flt -> IOArray Int Flt -> IO ()
 setGain gain arr = do
     (min, max) <- getBounds arr
     worker gain arr min max
+    evalArray arr
         where   worker gain arr index max
                     | index > max = return ()
                     | otherwise = do
@@ -181,10 +202,13 @@ setGain gain arr = do
 createAndProcessChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int Flt)
 createAndProcessChannel samples sr raytraces speaker = do
     channel <- createChannel samples sr raytraces speaker
+    evalArray channel
     bands <- splitBands channel
     filterBands sr bands
     out <- compileBands bands
+    evalArray out
     hipass sr 20 out
+    evalArray out
     return out
 
 createAllChannels :: Int -> Flt -> [RayTrace] -> [Speaker] -> IO [[Flt]]
