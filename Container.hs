@@ -30,7 +30,6 @@ instance (Num a) => Num (C3 a) where
 
 instance (NFData a) => NFData (C3 a) where
     rnf x = (fmap rnf x) `seq` ()
-instance NFData (C3 a)
 
 c3_0 :: C3 t -> t
 c3_0 (C3 x _ _) = x

@@ -1,7 +1,6 @@
 module Reflection where
 
 import Numerical
-import Vec3
 import Material
 
 data Reflection = Reflection    {   surface :: Surface

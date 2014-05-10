@@ -3,7 +3,7 @@ module Scene where
 import Prelude hiding (all, any, concat, concatMap, maximum, foldr, mapM_)
 
 import Numerical
-import Vec3
+import Vec3 hiding (normalize)
 import Positionable
 import Directionable
 import Ray
@@ -16,7 +16,6 @@ import Speaker
 import Container
 import ApplicativeBinaryOp
 
-import Data.List hiding (concat, concatMap, any, maximum, foldr, foldl')
 import Data.Maybe
 import Data.Foldable
 import Data.Array.IO
@@ -91,14 +90,8 @@ channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int VolumeColl
 channelForAllRayTraces sampleRate raytrace speaker arr = 
     mapM_ (\ x -> channelForRayTrace sampleRate x speaker arr) raytrace
 
-createChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO [VolumeCollection]
+createChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int VolumeCollection)
 createChannel samples sampleRate raytraces speaker = do
-    t <- newArray (0, samples) (pure 0)
-    channelForAllRayTraces sampleRate raytraces speaker t
-    getElems t
-
-createChannel_ :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int VolumeCollection)
-createChannel_ samples sampleRate raytraces speaker = do
     t <- newArray (0, samples) (pure 0)
     channelForAllRayTraces sampleRate raytraces speaker t
     return t
@@ -114,11 +107,11 @@ evalArray arr = do
 
 splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
 splitBands vc = do
-    b0 <- mapArray c30 vc
+    b0 <- mapArray c3_0 vc
     evalArray b0
-    b1 <- mapArray c31 vc
+    b1 <- mapArray c3_1 vc
     evalArray b1
-    b2 <- mapArray c32 vc
+    b2 <- mapArray c3_2 vc
     evalArray b2
     return $ C3 b0 b1 b2
 
@@ -131,8 +124,8 @@ filterBands sampleRate (C3 b0 b1 b2) = do
     hipass sampleRate 2000 b2
     evalArray b2
 
-compileBands_ :: C3 (IOArray Int Flt) -> IO (IOArray Int Flt)
-compileBands_ (C3 b0 b1 b2) = do
+compileBands :: C3 (IOArray Int Flt) -> IO (IOArray Int Flt)
+compileBands (C3 b0 b1 b2) = do
     (min, max) <- getBounds b0
     out <- newArray (min, max) 0.0
     worker out min max
@@ -146,8 +139,8 @@ compileBands_ (C3 b0 b1 b2) = do
                         writeArray out index (v0 + v1 + v2)
                         worker out (index + 1) max
 
-lopass_ :: Flt -> Flt -> IOArray Int Flt -> IO ()
-lopass_ sampleRate cutoff band = do
+lopass :: Flt -> Flt -> IOArray Int Flt -> IO ()
+lopass sampleRate cutoff band = do
     (min, max) <- getBounds band
     lopassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
     evalArray band
@@ -198,9 +191,9 @@ maxAbs arr = do
 setGain :: Flt -> IOArray Int Flt -> IO ()
 setGain gain arr = do
     (min, max) <- getBounds arr
-    worker gain arr min max
+    worker gain min max
     evalArray arr
-        where   worker gain arr index max
+        where   worker gain index max
                     | index > max = return ()
                     | otherwise = do
                         val <- readArray arr index
@@ -222,5 +215,5 @@ createAndProcessChannel samples sr raytraces speaker = do
 createAllChannels :: Int -> Flt -> [RayTrace] -> [Speaker] -> IO [[Flt]]
 createAllChannels samples sampleRate raytraces speakers = do
     a <- mapM (createAndProcessChannel samples sampleRate raytraces) speakers
-    normalize_ a
+    normalize a
     mapM getElems a
