@@ -13,14 +13,10 @@ import Container
 
 import Data.WAVE
 
-import Reflection
-import Ray
-import Control.Applicative
-import Data.Foldable
-import Data.List hiding (concat, any, maximum, foldr, foldl')
-import Data.Array.IO
 import System.Environment
+import Data.List (transpose)
 
+primitives :: [Primitive]
 primitives =    [ Plane (C3 (Material 0.95 0.95)
                             (Material 0.85 0.85)
                             (Material 0.75 0.75)) (Vec3 1 0 0) 50
@@ -45,24 +41,27 @@ primitives =    [ Plane (C3 (Material 0.95 0.95)
                              (Material 1 1)) True (Vec3 40 5 5) 1
                 ]
 
+mic :: Microphone
 mic = Mic $ Vec3 (-5) (-5) (-5)
 
+spk :: [Speaker]
 spk = [Speaker (Vec3 0 1 0) 0.5, Speaker (Vec3 1 0 0) 0.5]
 
 sampleRate :: Flt
 sampleRate = 44100.0
 
-rayverb primitives mic spk rays threshold sr filename = do
-    r <- traceMic primitives mic rays threshold
-    channels <- createAllChannels (lastSample sr r) sampleRate r spk
+rayverb :: [Primitive] -> Microphone -> [Speaker] -> Int -> Flt -> Flt -> String -> IO ()
+rayverb prims m s rays threshold sr filename = do
+    r <- traceMic prims m rays threshold
+    channels <- createAllChannels (lastSample sr r) sampleRate r s
     putWAVEFile filename (WAVE waveheader 
         (map (map doubleToSample) (transpose channels)))
-    where   waveheader = WAVEHeader (length spk) (round sampleRate) 16 Nothing
+    where   waveheader = WAVEHeader (length s) (round sampleRate) 16 Nothing
     
 main :: IO ()
 main = do
     args <- getArgs
     case length args of
         1 -> rayverb primitives mic spk 1000 0.01 44100 $ head args
-        otherwise -> putStrLn "program takes one argument"
+        _ -> putStrLn "program takes one argument"
 

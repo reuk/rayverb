@@ -29,16 +29,16 @@ instance (Num a) => Num (C3 a) where
     fromInteger = pure . fromInteger
 
 instance (NFData a) => NFData (C3 a) where
-    rnf x = (fmap rnf x) `seq` ()
+    rnf x = fmap rnf x `seq` ()
 
-c3_0 :: C3 t -> t
-c3_0 (C3 x _ _) = x
+c30 :: C3 t -> t
+c30 (C3 x _ _) = x
 
-c3_1 :: C3 t -> t
-c3_1 (C3 _ x _) = x
+c31 :: C3 t -> t
+c31 (C3 _ x _) = x
 
-c3_2 :: C3 t -> t
-c3_2 (C3 _ _ x) = x
+c32 :: C3 t -> t
+c32 (C3 _ _ x) = x
 
 --
 
@@ -64,4 +64,4 @@ instance (Num a) => Num (C4 a) where
     fromInteger = pure . fromInteger
 
 instance (NFData a) => NFData (C4 a) where
-    rnf x = (fmap rnf x) `seq` ()
+    rnf x = fmap rnf x `seq` ()

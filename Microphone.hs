@@ -17,7 +17,7 @@ constructRaysFromMic (Mic pos) = do
     gen1 <- newStdGen
     gen2 <- newStdGen
     return $ map (Ray pos) $ zipWith unitVectorFromAngles 
-                                  (randomRs ((-1), 1) gen1)
+                                  (randomRs (-1, 1) gen1)
                                   (randomRs (-pi, pi) gen2)
 
 unitVectorFromAngles :: Flt -> Flt -> Vec
