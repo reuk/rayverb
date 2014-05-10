@@ -21,5 +21,5 @@ constructRaysFromMic (Mic pos) = do
                                   (randomRs (-pi, pi) gen2)
 
 unitVectorFromAngles :: Flt -> Flt -> Vec
-unitVectorFromAngles r phi = Vec3 (z2 * (cos phi)) (z2 * (sin phi)) r
+unitVectorFromAngles r phi = Vec3 (z2 * cos phi) (z2 * sin phi) r
     where   z2 = sqrt (1.0 - (r * r))

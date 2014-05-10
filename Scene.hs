@@ -1,6 +1,6 @@
 module Scene where
 
-import Prelude hiding (all, any, concat, maximum, foldr, mapM_)
+import Prelude hiding (all, any, concat, concatMap, maximum, foldr, mapM_)
 
 import Numerical
 import Vec3
@@ -16,10 +16,13 @@ import Speaker
 import Container
 import ApplicativeBinaryOp
 
+import Data.List hiding (concat, concatMap, any, maximum, foldr, foldl')
 import Data.Maybe
 import Data.Foldable
 import Data.Array.IO
 import Control.Applicative
+import Debug.Trace
+import Control.DeepSeq
 
 import Control.DeepSeq
 
@@ -27,12 +30,12 @@ raytrace :: [P.Primitive] -> Ray -> Flt -> VolumeCollection -> [R.Reflection]
 raytrace primitives ray distance volume 
     | isNothing maybeClosest = []
     | primitiveIsSource prim = [reflect]
-    | otherwise = (reflect : raytrace primitives newRay newDist newVol)
+    | otherwise = reflect : raytrace primitives newRay newDist newVol
     where   maybeClosest = P.closest ray primitives
             prim = fromJust maybeClosest
             newRay = P.reflectFromPrimitive prim ray
             intersection = position newRay
-            newDist = distance + magnitude ((position ray) - intersection)
+            newDist = distance + magnitude (position ray - intersection)
             newVol = abop ((*) . specular) (P.surface prim) volume
             reflect = R.Reflection  (P.surface prim) 
                                     intersection
@@ -50,11 +53,11 @@ getSources = filter primitiveIsSource
 
 toImpulsesAllSources :: [P.Primitive] -> R.Reflection -> [Impulse]
 toImpulsesAllSources primitives reflection = 
-    map (\ x -> constructImpulse x reflection) primitives
+    map (`constructImpulse` reflection) primitives
 
 traceToImpulse :: [P.Primitive] -> Ray -> Flt -> [Impulse]
 traceToImpulse primitives ray threshold = 
-    concat $ map (toImpulsesAllSources (getSources primitives)) reflections
+    concatMap (toImpulsesAllSources (getSources primitives)) reflections
     where   reflections = takeWhile (any (> threshold) . R.volume)
                                     (raytrace primitives ray 0 (pure 1))
 
@@ -78,11 +81,11 @@ trimRayTraces samples sampleRate =
 
 channelUpdateLoop :: Flt -> Flt -> [Impulse] -> IOArray Int VolumeCollection -> IO ()
 channelUpdateLoop sr coeff impulses arr = 
-    mapM_ (\ x -> writeArray arr (timeInSamples sr x) ((pure coeff) * (amplitude x))) impulses
+    mapM_ (\ x -> writeArray arr (timeInSamples sr x) (pure coeff * amplitude x)) impulses
 
 channelForRayTrace :: Flt -> RayTrace -> Speaker -> IOArray Int VolumeCollection -> IO ()
-channelForRayTrace sampleRate (RayTrace dir impulses) speaker arr = 
-    channelUpdateLoop sampleRate (attenuation speaker dir) impulses arr
+channelForRayTrace sampleRate (RayTrace dir impulses) speaker = 
+    channelUpdateLoop sampleRate (attenuation speaker dir) impulses 
 
 channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int VolumeCollection -> IO ()
 channelForAllRayTraces sampleRate raytrace speaker arr = 
@@ -100,19 +103,33 @@ createChannel_ samples sampleRate raytraces speaker = do
     channelForAllRayTraces sampleRate raytraces speaker t
     return t
 
-splitBands_ :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
-splitBands_ vc = do
-    b0 <- mapArray c3_0 vc
-    b1 <- mapArray c3_1 vc
-    b2 <- mapArray c3_2 vc
-    return $ b0 b1 b2 C3 b0 b1 b2
+evalArray arr = do
+    (min, max) <- getBounds arr
+    worker min max
+        where   worker index max
+                    | index > max = return ()
+                    | otherwise = do
+                        val <- readArray arr index
+                        deepseq val $ worker (index + 1) max
 
-filterBands_ :: Flt -> C3 (IOArray Int Flt) -> IO ()
-filterBands_ sampleRate (C3 b0 b1 b2) = do
-    lopass_ sampleRate 200 b0
-    bandpass_ sampleRate 200 2000 b1
-    hipass_ sampleRate 2000 b2
-    return ()
+splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
+splitBands vc = do
+    b0 <- mapArray c30 vc
+    evalArray b0
+    b1 <- mapArray c31 vc
+    evalArray b1
+    b2 <- mapArray c32 vc
+    evalArray b2
+    return $ C3 b0 b1 b2
+
+filterBands :: Flt -> C3 (IOArray Int Flt) -> IO ()
+filterBands sampleRate (C3 b0 b1 b2) = do
+    lopass sampleRate 200 b0
+    evalArray b0
+    bandpass sampleRate 200 2000 b1
+    evalArray b1
+    hipass sampleRate 2000 b2
+    evalArray b2
 
 compileBands_ :: C3 (IOArray Int Flt) -> IO (IOArray Int Flt)
 compileBands_ (C3 b0 b1 b2) = do
@@ -132,37 +149,37 @@ compileBands_ (C3 b0 b1 b2) = do
 lopass_ :: Flt -> Flt -> IOArray Int Flt -> IO ()
 lopass_ sampleRate cutoff band = do
     (min, max) <- getBounds band
-    lopassWorker_ (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
+    lopassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
+    evalArray band
+    where   lopassWorker a0 index maxIndex state band
+                | index > maxIndex = return ()
+                | otherwise = do
+                    val <- readArray band index
+                    let new = state + a0 * (val - state)
+                    writeArray band index new
+                    lopassWorker a0 (index + 1) maxIndex new band
 
-lopassWorker_ :: Flt -> Int -> Int -> Flt -> IOArray Int Flt -> IO ()
-lopassWorker_ a0 index maxIndex state band
-    | index > maxIndex = return ()
-    | otherwise = do
-        val <- readArray band index
-        let new = state + a0 * (val - state)
-        writeArray band index new
-        lopassWorker_ a0 (index + 1) maxIndex new band
-
-hipass_ :: Flt -> Flt -> IOArray Int Flt -> IO ()
-hipass_ sampleRate cutoff band = do
+hipass :: Flt -> Flt -> IOArray Int Flt -> IO ()
+hipass sampleRate cutoff band = do
     (min, max) <- getBounds band
-    hipassWorker_ (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
+    hipassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
+    evalArray band
+    where   hipassWorker a0 index maxIndex state band
+                | index > maxIndex = return()
+                | otherwise = do
+                    val <- readArray band index
+                    let new = state + a0 * (val - state)
+                    writeArray band index (val - new)
+                    hipassWorker a0 (index + 1) maxIndex new band
 
-hipassWorker_ :: Flt -> Int -> Int -> Flt -> IOArray Int Flt -> IO ()
-hipassWorker_ a0 index maxIndex state band
-    | index > maxIndex = return()
-    | otherwise = do
-        val <- readArray band index
-        let new = state + a0 * (val - state)
-        writeArray band index (val - new)
-        hipassWorker_ a0 (index + 1) maxIndex new band
+bandpass sampleRate lo hi band = do
+    lopass sampleRate hi band
+    evalArray band
+    hipass sampleRate lo band
+    evalArray band
 
-bandpass_ sampleRate lo hi band = do
-    lopass_ sampleRate hi band
-    hipass_ sampleRate lo band
-
-normalize_ :: [IOArray Int Flt] -> IO ()
-normalize_ channels = do
+normalize :: [IOArray Int Flt] -> IO ()
+normalize channels = do
     maxes <- mapM maxAbs channels
     let max = maximum maxes
     mapM_ (setGain (0.99 / max)) channels
@@ -181,8 +198,9 @@ maxAbs arr = do
 setGain :: Flt -> IOArray Int Flt -> IO ()
 setGain gain arr = do
     (min, max) <- getBounds arr
-    worker gain min max
-        where   worker gain index max
+    worker gain arr min max
+    evalArray arr
+        where   worker gain arr index max
                     | index > max = return ()
                     | otherwise = do
                         val <- readArray arr index
@@ -191,11 +209,14 @@ setGain gain arr = do
 
 createAndProcessChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int Flt)
 createAndProcessChannel samples sr raytraces speaker = do
-    channel <- createChannel_ samples sr raytraces speaker
-    bands <- splitBands_ channel
-    filterBands_ sr bands
-    out <- compileBands_ bands
-    hipass_ sr 20 out
+    channel <- createChannel samples sr raytraces speaker
+    evalArray channel
+    bands <- splitBands channel
+    filterBands sr bands
+    out <- compileBands bands
+    evalArray out
+    hipass sr 20 out
+    evalArray out
     return out
 
 createAllChannels :: Int -> Flt -> [RayTrace] -> [Speaker] -> IO [[Flt]]

@@ -79,7 +79,7 @@ reflectFromPrimitive prim ray@(Ray position direction) = reflectRay ray nor pos
 
 closest :: Ray -> [Primitive] -> Maybe Primitive
 closest r primitives =
-    if null filtered then Nothing else Just prim
-    where   zipped = zip primitives (map (\ x -> intersection x r) primitives)
+    if null filtered then Nothing else Just closest
+    where   zipped = zip primitives (map (`intersection` r) primitives)
             filtered = filter (\ (_, x) -> isJust x && fromJust x > 0.00001) zipped
             (prim, _) = minimumBy (\ (_, x) (_, y) -> compare x y) filtered

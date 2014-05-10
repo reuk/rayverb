@@ -28,6 +28,8 @@ instance (Num a) => Num (C3 a) where
     signum = fmap signum
     fromInteger = pure . fromInteger
 
+instance (NFData a) => NFData (C3 a) where
+    rnf x = (fmap rnf x) `seq` ()
 instance NFData (C3 a)
 
 c3_0 :: C3 t -> t
@@ -62,4 +64,5 @@ instance (Num a) => Num (C4 a) where
     signum = fmap signum
     fromInteger = pure . fromInteger
 
-instance NFData (C4 a)
+instance (NFData a) => NFData (C4 a) where
+    rnf x = (fmap rnf x) `seq` ()
