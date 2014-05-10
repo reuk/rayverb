@@ -9,26 +9,27 @@ data Speaker = Speaker Vec Flt
 instance Directionable Speaker where
     direction (Speaker x _) = x
 
+directionality :: Speaker -> Flt
 directionality (Speaker _ x) = x
 
 constructSpeaker :: Flt -> Flt -> Flt -> Speaker
-constructSpeaker inclination azimuth =
-    Speaker (polarToCartesian inclination azimuth) 
+constructSpeaker inc azi =
+    Speaker (polarToCartesian inc azi) 
 
 attenuation :: Speaker -> Vec -> Flt
-attenuation (Speaker sDir directionality) rDir =
-    (1 - directionality) + 
-    (directionality * dot (normalize rDir) (normalize sDir))
+attenuation (Speaker sDir dir) rDir =
+    (1 - dir) + 
+    (dir * dot (normalize rDir) (normalize sDir))
 
 inclination :: Speaker -> Flt
-inclination (Speaker (Vec3 x y z) _) = acos y
+inclination (Speaker (Vec3 _ y _) _) = acos y
 
 azimuth :: Speaker -> Flt
-azimuth (Speaker (Vec3 x y z) _) = atan2 z x
+azimuth (Speaker (Vec3 x _ z) _) = atan2 z x
 
 polarToCartesian :: Flt -> Flt -> Vec
-polarToCartesian inclination azimuth = 
-    Vec3    ((sin inclination) * (cos azimuth))
-            (cos inclination)
-            ((sin inclination) * (sin azimuth))
+polarToCartesian inc azi = 
+    Vec3    ((sin inc) * (cos azi))
+            (cos inc)
+            ((sin inc) * (sin azi))
 

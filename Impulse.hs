@@ -12,7 +12,10 @@ data Impulse = Impulse  {   time :: Flt
                         ,   amplitude :: VolumeCollection
                         }   deriving (Eq, Show)
 
+speedOfSound :: Flt
 speedOfSound = 340
+
+secondsPerMetre :: Flt
 secondsPerMetre = 1 / speedOfSound
 
 constructImpulse :: P.Primitive -> R.Reflection -> Impulse
@@ -25,4 +28,5 @@ constructImpulse source r =
         )
     where   diff = (P.origin source) - (R.position r)
 
+timeInSamples :: Integral b => Flt -> Impulse -> b
 timeInSamples sampleRate impulse = round (sampleRate * time impulse)

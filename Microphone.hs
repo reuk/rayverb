@@ -13,10 +13,10 @@ instance Positionable Microphone where
     position (Mic x) = x
 
 constructRaysFromMic :: Microphone -> IO [Ray]
-constructRaysFromMic (Mic position) = do
+constructRaysFromMic (Mic pos) = do
     gen1 <- newStdGen
     gen2 <- newStdGen
-    return $ map (Ray position) $ zipWith unitVectorFromAngles 
+    return $ map (Ray pos) $ zipWith unitVectorFromAngles 
                                   (randomRs ((-1), 1) gen1)
                                   (randomRs (-pi, pi) gen2)
 

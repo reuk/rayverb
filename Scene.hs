@@ -1,9 +1,9 @@
 module Scene where
 
-import Prelude hiding (all, any, concat, maximum, foldr, foldl', mapM_)
+import Prelude hiding (all, any, concat, maximum, foldr, mapM_)
 
 import Numerical
-import Vec3 hiding (normalize)
+import Vec3
 import Positionable
 import Directionable
 import Ray
@@ -16,12 +16,12 @@ import Speaker
 import Container
 import ApplicativeBinaryOp
 
-import Data.List hiding (concat, any, maximum, foldr, foldl')
 import Data.Maybe
 import Data.Foldable
 import Data.Array.IO
 import Control.Applicative
-import Debug.Trace
+
+import Control.DeepSeq
 
 raytrace :: [P.Primitive] -> Ray -> Flt -> VolumeCollection -> [R.Reflection]
 raytrace primitives ray distance volume 
@@ -41,6 +41,7 @@ raytrace primitives ray distance volume
                                     newVol
                                     (primitiveIsSource prim)
 
+primitiveIsSource :: P.Primitive -> Bool
 primitiveIsSource (P.Sphere _ isSource _ _) = isSource
 primitiveIsSource _ = False
 
@@ -87,71 +88,81 @@ channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int VolumeColl
 channelForAllRayTraces sampleRate raytrace speaker arr = 
     mapM_ (\ x -> channelForRayTrace sampleRate x speaker arr) raytrace
 
-createChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int VolumeCollection)
+createChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO [VolumeCollection]
 createChannel samples sampleRate raytraces speaker = do
+    t <- newArray (0, samples) (pure 0)
+    channelForAllRayTraces sampleRate raytraces speaker t
+    getElems t
+
+createChannel_ :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int VolumeCollection)
+createChannel_ samples sampleRate raytraces speaker = do
     t <- newArray (0, samples) (pure 0)
     channelForAllRayTraces sampleRate raytraces speaker t
     return t
 
-splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
-splitBands vc = do
+splitBands_ :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
+splitBands_ vc = do
     b0 <- mapArray c3_0 vc
     b1 <- mapArray c3_1 vc
     b2 <- mapArray c3_2 vc
-    return $ C3 b0 b1 b2
+    return $ b0 b1 b2 C3 b0 b1 b2
 
-filterBands :: Flt -> C3 (IOArray Int Flt) -> IO ()
-filterBands sampleRate (C3 b0 b1 b2) = do
-    lopass sampleRate 200 b0
-    bandpass sampleRate 200 2000 b1
-    hipass sampleRate 2000 b2
+filterBands_ :: Flt -> C3 (IOArray Int Flt) -> IO ()
+filterBands_ sampleRate (C3 b0 b1 b2) = do
+    lopass_ sampleRate 200 b0
+    bandpass_ sampleRate 200 2000 b1
+    hipass_ sampleRate 2000 b2
     return ()
 
-compileBands :: C3 (IOArray Int Flt) -> IO (IOArray Int Flt)
-compileBands (C3 b0 b1 b2) = do
+compileBands_ :: C3 (IOArray Int Flt) -> IO (IOArray Int Flt)
+compileBands_ (C3 b0 b1 b2) = do
     (min, max) <- getBounds b0
     out <- newArray (min, max) 0.0
-    worker b0 b1 b2 out min max
+    worker out min max
     return out
-        where   worker b0 b1 b2 out index max
+        where   worker out index max
                     | index > max = return ()
                     | otherwise = do
                         v0 <- readArray b0 index
                         v1 <- readArray b1 index
                         v2 <- readArray b2 index
                         writeArray out index (v0 + v1 + v2)
-                        worker b0 b1 b2 out (index + 1) max
+                        worker out (index + 1) max
 
-lopass :: Flt -> Flt -> IOArray Int Flt -> IO ()
-lopass sampleRate cutoff band = do
+lopass_ :: Flt -> Flt -> IOArray Int Flt -> IO ()
+lopass_ sampleRate cutoff band = do
     (min, max) <- getBounds band
-    lopassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
-    where   lopassWorker a0 index maxIndex state band
-                | index > maxIndex = return ()
-                | otherwise = do
-                    val <- readArray band index
-                    let new = state + a0 * (val - state)
-                    writeArray band index new
-                    lopassWorker a0 (index + 1) maxIndex new band
+    lopassWorker_ (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
 
-hipass :: Flt -> Flt -> IOArray Int Flt -> IO ()
-hipass sampleRate cutoff band = do
+lopassWorker_ :: Flt -> Int -> Int -> Flt -> IOArray Int Flt -> IO ()
+lopassWorker_ a0 index maxIndex state band
+    | index > maxIndex = return ()
+    | otherwise = do
+        val <- readArray band index
+        let new = state + a0 * (val - state)
+        writeArray band index new
+        lopassWorker_ a0 (index + 1) maxIndex new band
+
+hipass_ :: Flt -> Flt -> IOArray Int Flt -> IO ()
+hipass_ sampleRate cutoff band = do
     (min, max) <- getBounds band
-    hipassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
-    where   hipassWorker a0 index maxIndex state band
-                | index > maxIndex = return()
-                | otherwise = do
-                    val <- readArray band index
-                    let new = state + a0 * (val - state)
-                    writeArray band index (val - new)
-                    hipassWorker a0 (index + 1) maxIndex new band
+    hipassWorker_ (1 - exp (-2 * pi * cutoff / sampleRate)) min max 0 band
 
-bandpass sampleRate lo hi band = do
-    lopass sampleRate hi band
-    hipass sampleRate lo band
+hipassWorker_ :: Flt -> Int -> Int -> Flt -> IOArray Int Flt -> IO ()
+hipassWorker_ a0 index maxIndex state band
+    | index > maxIndex = return()
+    | otherwise = do
+        val <- readArray band index
+        let new = state + a0 * (val - state)
+        writeArray band index (val - new)
+        hipassWorker_ a0 (index + 1) maxIndex new band
 
-normalize :: [IOArray Int Flt] -> IO ()
-normalize channels = do
+bandpass_ sampleRate lo hi band = do
+    lopass_ sampleRate hi band
+    hipass_ sampleRate lo band
+
+normalize_ :: [IOArray Int Flt] -> IO ()
+normalize_ channels = do
     maxes <- mapM maxAbs channels
     let max = maximum maxes
     mapM_ (setGain (0.99 / max)) channels
@@ -159,36 +170,36 @@ normalize channels = do
 maxAbs :: IOArray Int Flt -> IO Flt
 maxAbs arr = do
     (min, max) <- getBounds arr
-    worker arr 0 min max
-    where   worker arr state index max 
+    worker 0 min max
+    where   worker state index max 
                 | index > max = return state
                 | otherwise = do
                     val <- readArray arr index
                     let new = if abs val > state then abs val else state
-                    worker arr new (index + 1) max
+                    worker new (index + 1) max
 
 setGain :: Flt -> IOArray Int Flt -> IO ()
 setGain gain arr = do
     (min, max) <- getBounds arr
-    worker gain arr min max
-        where   worker gain arr index max
+    worker gain min max
+        where   worker gain index max
                     | index > max = return ()
                     | otherwise = do
                         val <- readArray arr index
                         writeArray arr index (val * gain)
-                        worker gain arr (index + 1) max
+                        worker gain (index + 1) max
 
 createAndProcessChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int Flt)
 createAndProcessChannel samples sr raytraces speaker = do
-    channel <- createChannel samples sr raytraces speaker
-    bands <- splitBands channel
-    filterBands sr bands
-    out <- compileBands bands
-    hipass sr 20 out
+    channel <- createChannel_ samples sr raytraces speaker
+    bands <- splitBands_ channel
+    filterBands_ sr bands
+    out <- compileBands_ bands
+    hipass_ sr 20 out
     return out
 
 createAllChannels :: Int -> Flt -> [RayTrace] -> [Speaker] -> IO [[Flt]]
 createAllChannels samples sampleRate raytraces speakers = do
     a <- mapM (createAndProcessChannel samples sampleRate raytraces) speakers
-    normalize a
+    normalize_ a
     mapM getElems a
