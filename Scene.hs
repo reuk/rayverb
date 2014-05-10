@@ -106,11 +106,11 @@ evalArray arr = do
 
 splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
 splitBands vc = do
-    b0 <- mapArray c3_0 vc
+    b0 <- mapArray c30 vc
     evalArray b0
-    b1 <- mapArray c3_1 vc
+    b1 <- mapArray c31 vc
     evalArray b1
-    b2 <- mapArray c3_2 vc
+    b2 <- mapArray c32 vc
     evalArray b2
     return $ C3 b0 b1 b2
 
