@@ -13,18 +13,7 @@ import Impulse
 import System.Environment
 
 import Text.JSON
-
-instance (JSON a) => JSON (C3 a) where
-    showJSON (C3 x y z) = JSObject $ toJSObject [("C3", JSArray [showJSON x, showJSON y, showJSON z])]
-
-instance (JSON a) => JSON (Vec3 a) where
-    showJSON (Vec3 x y z) = JSObject $ toJSObject [("x", showJSON x), ("y", showJSON y), ("z", showJSON z)]
-
-instance JSON Impulse where
-    showJSON (Impulse t a) = JSObject $ toJSObject [("p", showJSON t), ("a", showJSON a)]
-
-instance JSON RayTrace where
-    showJSON (RayTrace dir impulses) = JSObject $ toJSObject [("d", showJSON dir), ("i", showJSONs impulses)]
+import ImportExport
 
 primitives :: [Primitive]
 primitives =    [ Plane (C3 (Material 0.95 0.95)

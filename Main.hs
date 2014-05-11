@@ -54,7 +54,7 @@ sampleRate = 44100.0
 rayverb :: [Primitive] -> Microphone -> [Speaker] -> Int -> Flt -> Flt -> String -> IO ()
 rayverb prims m s rays threshold sr filename = do
     r <- traceMic prims m rays threshold
-    channels <- createAllChannels (lastSample sr r) sampleRate r s
+    channels <- createAllChannels (lastSample sr r) sr r s
     let out = force $ (map (map doubleToSample) $!! (transpose channels))
     putWAVEFile filename (WAVE waveheader out)
     where   waveheader = WAVEHeader (length s) (round sampleRate) 16 Nothing

@@ -24,6 +24,7 @@ executable tracer
   build-depends:       base ==4.6.*, deepseq ==1.3.*, array ==0.4.*, random ==1.0.*, json ==0.7.*
   ghc-options:         -threaded -rtsopts
 
--- executable flattener
---   main-is:             Flattener.hs
---   build-depends:       base ==4.6.*, deepseq ==1.3.*, array ==0.4.*, random ==1.0.*, WAVE ==0.1.*
+executable flattener
+  main-is:             Flattener.hs
+  build-depends:       base ==4.6.*, deepseq ==1.3.*, array ==0.4.*, random ==1.0.*, WAVE ==0.1.*, json ==0.7.*
+  ghc-options:         -threaded -rtsopts
