@@ -8,6 +8,7 @@ import Material
 import Data.List
 import Data.Maybe
 import Control.Applicative
+import Control.DeepSeq
 
 data Primitive = Sphere     {   surface :: Surface
                             ,   isSource :: Bool
@@ -26,6 +27,18 @@ data Primitive = Sphere     {   surface :: Surface
                             ,   edge1 :: Vec
                             ,   normal :: Vec
                             }   deriving (Eq, Show)
+
+instance NFData Primitive where
+    rnf (Sphere a b c d) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
+    rnf (Plane a b c) = a `deepseq` b `deepseq` c `deepseq` ()
+    rnf (Triangle a b c d e f g) = a `deepseq`
+                                   b `deepseq`
+                                   c `deepseq`
+                                   d `deepseq`
+                                   e `deepseq`
+                                   f `deepseq`
+                                   g `deepseq`
+                                   ()
 
 constructTriangle :: Surface -> Vec -> Vec -> Vec -> Primitive
 constructTriangle mat v0 v1 v2 = 

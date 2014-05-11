@@ -1,6 +1,7 @@
 module Vec3 where
 
 import Control.Applicative
+import Control.DeepSeq
 import Data.Foldable
 import ApplicativeBinaryOp
 
@@ -44,3 +45,9 @@ instance (Num a) => Num (Vec3 a) where
     abs = fmap abs
     signum = fmap signum
     fromInteger = pure . fromInteger
+
+instance (NFData a) => NFData (Vec3 a) where
+    rnf (Vec3 x y z) = x `deepseq`
+                       y `deepseq`
+                       z `deepseq`
+                       ()

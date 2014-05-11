@@ -1,7 +1,5 @@
 module Main where
 
-import Prelude hiding (all, any, concat, maximum, foldr)
-
 import Numerical
 import Vec3
 import Scene
@@ -10,12 +8,23 @@ import Microphone
 import Speaker
 import Material
 import Container
-
-import Data.WAVE
+import Impulse
 
 import System.Environment
-import Data.List (transpose)
-import Control.DeepSeq
+
+import Text.JSON
+
+instance (JSON a) => JSON (C3 a) where
+    showJSON (C3 x y z) = JSObject $ toJSObject [("C3", JSArray [showJSON x, showJSON y, showJSON z])]
+
+instance (JSON a) => JSON (Vec3 a) where
+    showJSON (Vec3 x y z) = JSObject $ toJSObject [("x", showJSON x), ("y", showJSON y), ("z", showJSON z)]
+
+instance JSON Impulse where
+    showJSON (Impulse t a) = JSObject $ toJSObject [("p", showJSON t), ("a", showJSON a)]
+
+instance JSON RayTrace where
+    showJSON (RayTrace dir impulses) = JSObject $ toJSObject [("d", showJSON dir), ("i", showJSONs impulses)]
 
 primitives :: [Primitive]
 primitives =    [ Plane (C3 (Material 0.95 0.95)
@@ -42,27 +51,17 @@ primitives =    [ Plane (C3 (Material 0.95 0.95)
                              (Material 1 1)) True (Vec3 40 5 5) 1
                 ]
 
-mic :: Microphone
-mic = Mic $ Vec3 (-5) (-5) (-5)
+microphone :: Microphone
+microphone = Mic $ Vec3 (-5) (-5) (-5)
 
-spk :: [Speaker]
-spk = [Speaker (Vec3 0 1 0) 0.5, Speaker (Vec3 1 0 0) 0.5]
+tracer :: [Primitive] -> Microphone -> Int -> Flt -> String -> IO ()
+tracer prims mic rays threshold filename = do
+    r <- traceMic prims mic rays threshold
+    writeFile filename $ encode r
 
-sampleRate :: Flt
-sampleRate = 44100.0
-
-rayverb :: [Primitive] -> Microphone -> [Speaker] -> Int -> Flt -> Flt -> String -> IO ()
-rayverb prims m s rays threshold sr filename = do
-    r <- traceMic prims m rays threshold
-    channels <- createAllChannels (lastSample sr r) sampleRate r s
-    let out = force $ (map (map doubleToSample) $!! (transpose channels))
-    putWAVEFile filename (WAVE waveheader out)
-    where   waveheader = WAVEHeader (length s) (round sampleRate) 16 Nothing
-    
 main :: IO ()
 main = do
     args <- getArgs
     case length args of
-        1 -> rayverb primitives mic spk 10000 0.01 44100 $ head args
+        1 -> tracer primitives microphone 10000 0.01 $ head args
         _ -> putStrLn "program takes one argument"
-

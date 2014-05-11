@@ -23,23 +23,43 @@ import Control.Applicative
 
 import Control.DeepSeq
 
-raytrace :: [P.Primitive] -> Ray -> Flt -> VolumeCollection -> [R.Reflection]
-raytrace primitives ray distance volume 
+-- raytrace :: [P.Primitive] -> Flt -> Ray -> Flt -> VolumeCollection -> [R.Reflection]
+-- raytrace primitives threshold ray distance volume 
+--     | all (< threshold) volume = []
+--     | isNothing maybeClosest = []
+--     | primitiveIsSource prim = [reflection]
+--     | otherwise = reflection : (force $ raytrace primitives threshold newRay newDist newVol)
+--     where   maybeClosest = P.closest ray primitives
+--             prim = fromJust maybeClosest
+--             newRay = P.reflectFromPrimitive prim ray
+--             intersection = position newRay
+--             newDist = distance + magnitude (position ray - intersection)
+--             newVol = abop ((*) . specular) (P.surface prim) volume
+--             reflection = force $ R.Reflection   (P.surface prim) 
+--                                                 intersection
+--                                                 (P.findNormal prim intersection)
+--                                                 newDist
+--                                                 newVol
+--                                                 (primitiveIsSource prim)
+
+raytrace primitives sources threshold ray distance volume
+    | all (< threshold) volume = []
     | isNothing maybeClosest = []
-    | primitiveIsSource prim = [reflection]
-    | otherwise = reflection : raytrace primitives newRay newDist newVol
+    | primitiveIsSource prim = impulses
+    | otherwise = impulses ++ (force $ raytrace primitives sources threshold newRay newDist newVol)
     where   maybeClosest = P.closest ray primitives
             prim = fromJust maybeClosest
             newRay = P.reflectFromPrimitive prim ray
             intersection = position newRay
             newDist = distance + magnitude (position ray - intersection)
             newVol = abop ((*) . specular) (P.surface prim) volume
-            reflection = R.Reflection   (P.surface prim) 
-                                        intersection
-                                        (P.findNormal prim intersection)
-                                        newDist
-                                        newVol
-                                        (primitiveIsSource prim)
+            impulses = force $ toImpulsesAllSources sources reflection
+            reflection = force $ R.Reflection   (P.surface prim) 
+                                                intersection
+                                                (P.findNormal prim intersection)
+                                                newDist
+                                                newVol
+                                                (primitiveIsSource prim)
 
 primitiveIsSource :: P.Primitive -> Bool
 primitiveIsSource (P.Sphere _ isSource _ _) = isSource
@@ -52,11 +72,13 @@ toImpulsesAllSources :: [P.Primitive] -> R.Reflection -> [Impulse]
 toImpulsesAllSources primitives reflection = 
     map (`constructImpulse` reflection) primitives
 
+-- traceToImpulse :: [P.Primitive] -> Ray -> Flt -> [Impulse]
+-- traceToImpulse primitives ray threshold = 
+--     concatMap (toImpulsesAllSources (getSources primitives)) reflections
+--     where   reflections = raytrace primitives threshold ray 0 (pure 1)
+
 traceToImpulse :: [P.Primitive] -> Ray -> Flt -> [Impulse]
-traceToImpulse primitives ray threshold = 
-    concatMap (toImpulsesAllSources (getSources primitives)) reflections
-    where   reflections = takeWhile (any (> threshold) . R.volume)
-                                    (raytrace primitives ray 0 (pure 1))
+traceToImpulse primitives ray threshold = raytrace primitives (getSources primitives) threshold ray 0 (pure 1)
 
 data RayTrace = RayTrace Vec [Impulse]
     deriving (Eq, Show)
@@ -104,17 +126,20 @@ evalArray arr = do
                         val <- readArray arr ind
                         deepseq val $ worker (ind + 1) maxi
 
-splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOArray Int Flt))
-splitBands vc = do
-    b0 <- mapArray c30 vc
-    evalArray b0
-    b1 <- mapArray c31 vc
-    evalArray b1
-    b2 <- mapArray c32 vc
-    evalArray b2
-    return $ C3 b0 b1 b2
+boxedToUnboxed :: ((C3 Flt) -> Flt) -> IOArray Int (C3 Flt) -> IO (IOUArray Int Flt)
+boxedToUnboxed func arr = do
+    elems <- getElems arr
+    bounds <- getBounds arr
+    newListArray bounds $ map func elems
 
-filterBands :: Flt -> C3 (IOArray Int Flt) -> IO ()
+splitBands :: IOArray Int (C3 Flt) -> IO (C3 (IOUArray Int Flt))
+splitBands vc = do
+    ub0 <- boxedToUnboxed c30 vc
+    ub1 <- boxedToUnboxed c31 vc
+    ub2 <- boxedToUnboxed c32 vc
+    return $! C3 ub0 ub1 ub2
+
+filterBands :: Flt -> C3 (IOUArray Int Flt) -> IO ()
 filterBands sampleRate (C3 b0 b1 b2) = do
     lopass sampleRate 200 b0
     evalArray b0
@@ -123,11 +148,12 @@ filterBands sampleRate (C3 b0 b1 b2) = do
     hipass sampleRate 2000 b2
     evalArray b2
 
-compileBands :: C3 (IOArray Int Flt) -> IO (IOArray Int Flt)
+compileBands :: C3 (IOUArray Int Flt) -> IO (IOUArray Int Flt)
 compileBands (C3 b0 b1 b2) = do
     (mini, maxi) <- getBounds b0
     out <- newArray (mini, maxi) 0.0
     worker out mini maxi
+    evalArray out
     return out
         where   worker out ind maxi
                     | ind > maxi = return ()
@@ -138,7 +164,7 @@ compileBands (C3 b0 b1 b2) = do
                         writeArray out ind (v0 + v1 + v2)
                         worker out (ind + 1) maxi
 
-lopass :: Flt -> Flt -> IOArray Int Flt -> IO ()
+lopass :: Flt -> Flt -> IOUArray Int Flt -> IO ()
 lopass sampleRate cutoff band = do
     (mini, maxi) <- getBounds band
     lopassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) mini maxi 0 
@@ -151,7 +177,7 @@ lopass sampleRate cutoff band = do
                     writeArray band ind new
                     lopassWorker a0 (ind + 1) maxIndex new 
 
-hipass :: Flt -> Flt -> IOArray Int Flt -> IO ()
+hipass :: Flt -> Flt -> IOUArray Int Flt -> IO ()
 hipass sampleRate cutoff band = do
     (mini, maxi) <- getBounds band
     hipassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) mini maxi 0 
@@ -164,20 +190,20 @@ hipass sampleRate cutoff band = do
                     writeArray band ind (val - new)
                     hipassWorker a0 (ind + 1) maxIndex new 
 
-bandpass :: Flt -> Flt -> Flt -> IOArray Int Flt -> IO ()
+bandpass :: Flt -> Flt -> Flt -> IOUArray Int Flt -> IO ()
 bandpass sampleRate lo hi band = do
     lopass sampleRate hi band
     evalArray band
     hipass sampleRate lo band
     evalArray band
 
-normalize :: [IOArray Int Flt] -> IO ()
+normalize :: [IOUArray Int Flt] -> IO ()
 normalize channels = do
     maxes <- mapM maxAbs channels
     let maxi = maximum maxes
     mapM_ (setGain (0.99 / maxi)) channels
 
-maxAbs :: IOArray Int Flt -> IO Flt
+maxAbs :: IOUArray Int Flt -> IO Flt
 maxAbs arr = do
     (mini, maxi) <- getBounds arr
     worker 0 mini maxi
@@ -188,7 +214,7 @@ maxAbs arr = do
                     let new = if abs val > state then abs val else state
                     worker new (ind + 1) maxi
 
-setGain :: Flt -> IOArray Int Flt -> IO ()
+setGain :: Flt -> IOUArray Int Flt -> IO ()
 setGain gain arr = do
     (mini, maxi) <- getBounds arr
     worker mini maxi
@@ -200,7 +226,7 @@ setGain gain arr = do
                         writeArray arr ind (val * gain)
                         worker (ind + 1) maxi
 
-createAndProcessChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOArray Int Flt)
+createAndProcessChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOUArray Int Flt)
 createAndProcessChannel samples sr raytraces speaker = do
     channel <- createChannel samples sr raytraces speaker
     evalArray channel
