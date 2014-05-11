@@ -5,15 +5,12 @@ import Vec3
 import Scene
 import Primitive
 import Microphone
-import Speaker
 import Material
 import Container
-import Impulse
 
 import System.Environment
 
-import Text.JSON
-import ImportExport
+import Text.JSON.Generic
 
 primitives :: [Primitive]
 primitives =    [ Plane (C3 (Material 0.95 0.95)
@@ -46,7 +43,7 @@ microphone = Mic $ Vec3 (-5) (-5) (-5)
 tracer :: [Primitive] -> Microphone -> Int -> Flt -> String -> IO ()
 tracer prims mic rays threshold filename = do
     r <- traceMic prims mic rays threshold
-    writeFile filename $ encode r
+    writeFile filename $ encodeJSON r
 
 main :: IO ()
 main = do

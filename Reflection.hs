@@ -2,13 +2,14 @@ module Reflection where
 
 import Numerical
 import Material
+import Container
 import Control.DeepSeq
 
-data Reflection = Reflection    {   surface :: Surface
+data Reflection = Reflection    {   surface :: C3 Material
                                 ,   position :: Vec
                                 ,   normal :: Vec
                                 ,   distance :: Flt
-                                ,   volume :: VolumeCollection
+                                ,   volume :: C3 Flt
                                 ,   direct :: Bool
                                 }   deriving (Eq, Show)
 

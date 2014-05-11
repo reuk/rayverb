@@ -4,22 +4,23 @@ import Numerical
 import Vec3
 import Ray
 import Material
+import Container
 
 import Data.List
 import Data.Maybe
 import Control.Applicative
 import Control.DeepSeq
 
-data Primitive = Sphere     {   surface :: Surface
+data Primitive = Sphere     {   surface :: C3 Material
                             ,   isSource :: Bool
                             ,   origin :: Vec
                             ,   radius :: Flt
                             } 
-               | Plane      {   surface :: Surface
+               | Plane      {   surface :: C3 Material
                             ,   normal :: Vec
                             ,   distance :: Flt
                             } 
-               | Triangle   {   surface :: Surface
+               | Triangle   {   surface :: C3 Material
                             ,   vert0 :: Vec
                             ,   vert1 :: Vec
                             ,   vert2 :: Vec
@@ -40,7 +41,7 @@ instance NFData Primitive where
                                    g `deepseq`
                                    ()
 
-constructTriangle :: Surface -> Vec -> Vec -> Vec -> Primitive
+constructTriangle :: C3 Material -> Vec -> Vec -> Vec -> Primitive
 constructTriangle mat v0 v1 v2 = 
     Triangle mat v0 v1 v2 e0 e1 (normalize (cross e0 e1))
     where   e0 = v1 - v0

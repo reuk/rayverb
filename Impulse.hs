@@ -1,18 +1,22 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Impulse where
 
 import Numerical
 import Vec3
 import Material
+import Container
 import qualified Primitive as P
 import qualified Reflection as R
+import Text.JSON.Generic
 
 import Control.Applicative
 
 import Control.DeepSeq
 
 data Impulse = Impulse  {   time :: Flt
-                        ,   amplitude :: VolumeCollection
-                        }   deriving (Eq, Show)
+                        ,   amplitude :: C3 Flt
+                        }   deriving (Eq, Show, Data, Typeable)
 
 instance NFData Impulse where
     rnf (Impulse t a) = t `deepseq` a `deepseq` ()

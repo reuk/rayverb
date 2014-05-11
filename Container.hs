@@ -1,14 +1,17 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Container where
 
 import Control.Applicative
 import Data.Foldable
 import ApplicativeBinaryOp
 import Control.DeepSeq
+import Text.JSON.Generic
 
 --
 
 data C3 a = C3 a a a 
-    deriving (Eq, Show)
+    deriving (Eq, Show, Data, Typeable)
 
 instance Functor C3 where
     fmap f (C3 a b c) = C3 (f a) (f b) (f c)
@@ -43,7 +46,7 @@ c32 (C3 _ _ x) = x
 --
 
 data C4 a = C4 a a a a 
-    deriving (Eq, Show)
+    deriving (Eq, Show, Data, Typeable)
 
 instance Functor C4 where
     fmap f (C4 a b c d) = C4 (f a) (f b) (f c) (f d)
