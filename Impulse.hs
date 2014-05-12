@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Impulse where
 
@@ -8,7 +8,8 @@ import Material
 import Container
 import qualified Primitive as P
 import qualified Reflection as R
-import Text.JSON.Generic
+import Data.Aeson
+import GHC.Generics
 
 import Control.Applicative
 
@@ -16,7 +17,10 @@ import Control.DeepSeq
 
 data Impulse = Impulse  {   time :: Flt
                         ,   amplitude :: C3 Flt
-                        }   deriving (Eq, Show, Data, Typeable)
+                        }   deriving (Eq, Show, Generic)
+
+instance FromJSON Impulse
+instance ToJSON Impulse
 
 instance NFData Impulse where
     rnf (Impulse t a) = t `deepseq` a `deepseq` ()

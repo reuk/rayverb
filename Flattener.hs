@@ -1,5 +1,7 @@
 module Main where
 
+import Prelude hiding (readFile)
+
 import Numerical
 import Vec3
 import Scene
@@ -10,8 +12,8 @@ import Data.WAVE
 import System.Environment
 import Data.List (transpose)
 import Control.DeepSeq
-import Text.JSON
-import Text.JSON.Generic
+import Data.Aeson
+import Data.ByteString.Lazy (readFile)
 
 spk :: [Speaker]
 spk = [Speaker (Vec3 0 1 0) 0.5, Speaker (Vec3 1 0 0) 0.5]
@@ -22,16 +24,14 @@ sampleRate = 44100.0
 flattener :: [Speaker] -> String -> String -> IO ()
 flattener speakers raytraceFile outFile = do
     input <- readFile raytraceFile
-    let x = decode input :: Result JSValue
+    let x = decode' input :: Maybe [RayTrace]
     case x of
-        Ok y -> case fromJSON y of
-            Ok z -> do
-                channels <- createAllChannels (lastSample sampleRate z) sampleRate z speakers
-                let out = force $ (map (map doubleToSample) $!! (transpose channels))
-                putWAVEFile outFile (WAVE waveheader out)
-                where   waveheader = WAVEHeader (length speakers) (round sampleRate) 16 Nothing
-            Error y -> putStrLn y
-        Error y -> putStrLn y
+        Just z -> do
+            channels <- createAllChannels (lastSample sampleRate z) sampleRate z speakers
+            let out = force $ (map (map doubleToSample) $!! (transpose channels))
+            putWAVEFile outFile (WAVE waveheader out)
+            where   waveheader = WAVEHeader (length speakers) (round sampleRate) 16 Nothing
+        Nothing -> putStrLn "parse failed"
     
 main :: IO ()
 main = do

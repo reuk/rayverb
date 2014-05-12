@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Scene where
 
@@ -25,26 +25,8 @@ import Control.Applicative
 
 import Control.DeepSeq
 
-import Text.JSON.Generic
-
--- raytrace :: [P.Primitive] -> Flt -> Ray -> Flt -> C3 Flt -> [R.Reflection]
--- raytrace primitives threshold ray distance volume 
---     | all (< threshold) volume = []
---     | isNothing maybeClosest = []
---     | primitiveIsSource prim = [reflection]
---     | otherwise = reflection : (force $ raytrace primitives threshold newRay newDist newVol)
---     where   maybeClosest = P.closest ray primitives
---             prim = fromJust maybeClosest
---             newRay = P.reflectFromPrimitive prim ray
---             intersection = position newRay
---             newDist = distance + magnitude (position ray - intersection)
---             newVol = abop ((*) . specular) (P.surface prim) volume
---             reflection = force $ R.Reflection   (P.surface prim) 
---                                                 intersection
---                                                 (P.findNormal prim intersection)
---                                                 newDist
---                                                 newVol
---                                                 (primitiveIsSource prim)
+import Data.Aeson
+import GHC.Generics
 
 raytrace :: [P.Primitive] -> [P.Primitive] -> Flt -> Ray -> Flt -> C3 Flt -> [Impulse]
 raytrace primitives sources threshold ray distance volume
@@ -77,16 +59,14 @@ toImpulsesAllSources :: [P.Primitive] -> R.Reflection -> [Impulse]
 toImpulsesAllSources primitives reflection = 
     map (`constructImpulse` reflection) primitives
 
--- traceToImpulse :: [P.Primitive] -> Ray -> Flt -> [Impulse]
--- traceToImpulse primitives ray threshold = 
---     concatMap (toImpulsesAllSources (getSources primitives)) reflections
---     where   reflections = raytrace primitives threshold ray 0 (pure 1)
-
 traceToImpulse :: [P.Primitive] -> Ray -> Flt -> [Impulse]
 traceToImpulse primitives ray threshold = raytrace primitives (getSources primitives) threshold ray 0 (pure 1)
 
 data RayTrace = RayTrace Vec [Impulse]
-    deriving (Eq, Show, Data, Typeable)
+    deriving (Eq, Show, Generic)
+
+instance FromJSON RayTrace
+instance ToJSON RayTrace
 
 traceDirection :: [P.Primitive] -> Ray -> Flt -> RayTrace
 traceDirection prims ray = RayTrace (direction ray) . traceToImpulse prims ray

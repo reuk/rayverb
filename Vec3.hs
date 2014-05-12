@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Vec3 where
 
@@ -6,10 +6,14 @@ import Control.Applicative
 import Control.DeepSeq
 import Data.Foldable
 import ApplicativeBinaryOp
-import Text.JSON.Generic
+import Data.Aeson
+import GHC.Generics
 
 data Vec3 a = Vec3 a a a
-    deriving (Eq, Show, Data, Typeable)
+    deriving (Eq, Show, Generic)
+
+instance (FromJSON a) => FromJSON (Vec3 a)
+instance (ToJSON a) => ToJSON (Vec3 a)
 
 sqrMagnitude :: Num a => Vec3 a -> a
 sqrMagnitude (Vec3 x y z) = x * x + y * y + z * z

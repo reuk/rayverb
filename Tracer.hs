@@ -1,5 +1,7 @@
 module Main where
 
+import Prelude hiding (writeFile)
+
 import Numerical
 import Vec3
 import Scene
@@ -10,7 +12,9 @@ import Container
 
 import System.Environment
 
-import Text.JSON.Generic
+import Data.Aeson
+
+import Data.ByteString.Lazy (writeFile)
 
 primitives :: [Primitive]
 primitives =    [ Plane (C3 (Material 0.95 0.95)
@@ -43,11 +47,11 @@ microphone = Mic $ Vec3 (-5) (-5) (-5)
 tracer :: [Primitive] -> Microphone -> Int -> Flt -> String -> IO ()
 tracer prims mic rays threshold filename = do
     r <- traceMic prims mic rays threshold
-    writeFile filename $ encodeJSON r
+    writeFile filename $ encode r
 
 main :: IO ()
 main = do
     args <- getArgs
     case length args of
-        1 -> tracer primitives microphone 10000 0.01 $ head args
+        1 -> tracer primitives microphone 1000 0.01 $ head args
         _ -> putStrLn "program takes one argument"
