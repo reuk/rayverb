@@ -12,9 +12,10 @@ import Container
 
 import System.Environment
 
-import Data.Aeson
-
-import Data.ByteString.Lazy (writeFile)
+import Pipes 
+import qualified Pipes.ByteString as P
+import System.IO hiding (writeFile)
+import Pipes.Aeson.Unchecked
 
 primitives :: [Primitive]
 primitives =    [ Plane (C3 (Material 0.95 0.95)
@@ -47,7 +48,8 @@ microphone = Mic $ Vec3 (-5) (-5) (-5)
 tracer :: [Primitive] -> Microphone -> Int -> Flt -> String -> IO ()
 tracer prims mic rays threshold filename = do
     r <- traceMic prims mic rays threshold
-    writeFile filename $ encode r
+    withFile filename WriteMode $ \hOut -> 
+        runEffect $ each r >-> for cat encode >-> P.toHandle hOut
 
 main :: IO ()
 main = do
