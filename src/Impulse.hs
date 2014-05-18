@@ -41,5 +41,8 @@ constructImpulse source r =
         ))
     where   diff = P.origin source - R.position r
 
+secondsToSamples :: Integral b => Flt -> Flt -> b
+secondsToSamples sampleRate t = round (sampleRate * t)
+
 timeInSamples :: Integral b => Flt -> Impulse -> b
-timeInSamples sampleRate impulse = round (sampleRate * time impulse)
+timeInSamples sampleRate = secondsToSamples sampleRate . time

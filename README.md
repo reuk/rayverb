@@ -14,3 +14,5 @@ maybe turn into library with a couple of cmd line utilities that can be wrapped 
 
 research other methods of reflection and refraction in standard raytracing
     for example, brdf
+
+at the moment each sample is 'snapped' to the closest time - could I do some kind of aliasing instead?

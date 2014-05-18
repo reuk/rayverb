@@ -22,9 +22,7 @@ import Data.Maybe
 import Data.Foldable
 import Data.Array.IO
 import Control.Applicative
-
 import Control.DeepSeq
-
 import Data.Aeson
 import GHC.Generics
 
@@ -65,6 +63,11 @@ traceToImpulse primitives ray threshold = raytrace primitives (getSources primit
 data RayTrace = RayTrace Vec [Impulse]
     deriving (Eq, Show, Generic)
 
+instance Directionable RayTrace where
+    direction (RayTrace d _) = d
+
+impulses (RayTrace _ i) = i
+
 instance FromJSON RayTrace
 instance ToJSON RayTrace
 
@@ -77,11 +80,13 @@ traceMic prims mic rayNum threshold = do
     return $ map (\ x -> traceDirection prims x threshold) $ take rayNum rays
 
 lastSample :: Flt -> [RayTrace] -> Int
-lastSample sampleRate = maximum . map (\ (RayTrace _ i) -> maximum (map (timeInSamples sampleRate) i))
+lastSample sampleRate = 
+    maximum . map (maximum . map (timeInSamples sampleRate) . impulses)
 
 trimRayTraces :: Int -> Flt -> [RayTrace] -> [RayTrace]
 trimRayTraces samples sampleRate =
-    map (\ (RayTrace d i) -> RayTrace d $ filter ((>) samples . timeInSamples sampleRate) i) 
+    map (\ (RayTrace d i) -> RayTrace d $ trimImpulses i)
+    where   trimImpulses = filter ((>) samples . timeInSamples sampleRate)
 
 channelUpdateLoop :: Flt -> Flt -> [Impulse] -> IOArray Int (C3 Flt) -> IO ()
 channelUpdateLoop sr coeff impulses arr = 

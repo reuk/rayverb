@@ -55,5 +55,5 @@ main :: IO ()
 main = do
     args <- getArgs
     case length args of
-        1 -> tracer primitives microphone 1000 0.01 $ head args
+        1 -> tracer primitives microphone 10000 0.01 $ head args
         _ -> putStrLn "program takes one argument"
