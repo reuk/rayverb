@@ -28,6 +28,7 @@ library
                         pipes-aeson,
                         pipes-bytestring,
                         lens-family-core,
+                        foldl,
                         mtl
     ghc-options:        -threaded -rtsopts
     exposed-modules:    ApplicativeBinaryOp, 
@@ -61,6 +62,7 @@ executable tracer
                         pipes-aeson,
                         pipes-bytestring,
                         lens-family-core,
+                        foldl,
                         mtl
     ghc-options:        -threaded -rtsopts
 
@@ -81,5 +83,6 @@ executable flattener
                         pipes-aeson,
                         pipes-bytestring,
                         lens-family-core,
+                        foldl,
                         mtl
     ghc-options:        -threaded -rtsopts
