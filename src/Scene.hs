@@ -106,16 +106,6 @@ createChannel samples sampleRate raytraces speaker = do
     channelForAllRayTraces sampleRate raytraces speaker t
     return t
 
-evalArray :: (Num i, Ix i, NFData e, MArray a e m) => a i e -> m ()
-evalArray arr = do
-    (mini, maxi) <- getBounds arr
-    worker mini maxi
-        where   worker ind maxi
-                    | ind > maxi = return ()
-                    | otherwise = do
-                        val <- readArray arr ind
-                        deepseq val $ worker (ind + 1) maxi
-
 boxedToUnboxed :: ((C3 Flt) -> Flt) -> IOArray Int (C3 Flt) -> IO (IOUArray Int Flt)
 boxedToUnboxed func arr = do
     elems <- getElems arr
@@ -132,18 +122,14 @@ splitBands vc = do
 filterBands :: Flt -> C3 (IOUArray Int Flt) -> IO ()
 filterBands sampleRate (C3 b0 b1 b2) = do
     lopass sampleRate 200 b0
-    evalArray b0
     bandpass sampleRate 200 2000 b1
-    evalArray b1
     hipass sampleRate 2000 b2
-    evalArray b2
 
 compileBands :: C3 (IOUArray Int Flt) -> IO (IOUArray Int Flt)
 compileBands (C3 b0 b1 b2) = do
     (mini, maxi) <- getBounds b0
     out <- newArray (mini, maxi) 0.0
     worker out mini maxi
-    evalArray out
     return out
         where   worker out ind maxi
                     | ind > maxi = return ()
@@ -158,7 +144,6 @@ lopass :: Flt -> Flt -> IOUArray Int Flt -> IO ()
 lopass sampleRate cutoff band = do
     (mini, maxi) <- getBounds band
     lopassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) mini maxi 0 
-    evalArray band
     where   lopassWorker a0 ind maxIndex state 
                 | ind > maxIndex = return ()
                 | otherwise = do
@@ -171,7 +156,6 @@ hipass :: Flt -> Flt -> IOUArray Int Flt -> IO ()
 hipass sampleRate cutoff band = do
     (mini, maxi) <- getBounds band
     hipassWorker (1 - exp (-2 * pi * cutoff / sampleRate)) mini maxi 0 
-    evalArray band
     where   hipassWorker a0 ind maxIndex state 
                 | ind > maxIndex = return()
                 | otherwise = do
@@ -183,9 +167,7 @@ hipass sampleRate cutoff band = do
 bandpass :: Flt -> Flt -> Flt -> IOUArray Int Flt -> IO ()
 bandpass sampleRate lo hi band = do
     lopass sampleRate hi band
-    evalArray band
     hipass sampleRate lo band
-    evalArray band
 
 normalize :: [IOUArray Int Flt] -> IO ()
 normalize channels = do
@@ -208,7 +190,6 @@ setGain :: Flt -> IOUArray Int Flt -> IO ()
 setGain gain arr = do
     (mini, maxi) <- getBounds arr
     worker mini maxi
-    evalArray arr
         where   worker ind maxi
                     | ind > maxi = return ()
                     | otherwise = do
@@ -219,13 +200,10 @@ setGain gain arr = do
 createAndProcessChannel :: Int -> Flt -> [RayTrace] -> Speaker -> IO (IOUArray Int Flt)
 createAndProcessChannel samples sr raytraces speaker = do
     channel <- createChannel samples sr raytraces speaker
-    evalArray channel
     bands <- splitBands channel
     filterBands sr bands
     out <- compileBands bands
-    evalArray out
     hipass sr 20 out
-    evalArray out
     return out
 
 createAllChannels :: Int -> Flt -> [RayTrace] -> [Speaker] -> IO [[Flt]]

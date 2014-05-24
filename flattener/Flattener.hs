@@ -26,82 +26,53 @@ import Lens.Family
 import Lens.Family.State.Strict 
 import Data.Array.IO
 import Debug.Trace
-import Pipes.Prelude (fold)
+import qualified Pipes.Prelude as PP
 import Control.Foldl (purely)
+import Lens.Family (view)
 
 spk :: [Speaker]
 spk = [Speaker (Vec3 0 1 0) 0.5, Speaker (Vec3 1 0 0) 0.5]
 
-flattener :: [Speaker] -> Flt -> Int -> String -> String -> IO ()
-flattener speakers sampleRate bitDepth raytraceFile outFile = do
-    input <- readFile raytraceFile
-    let x = decode' input :: Maybe [RayTrace]
-    case x of
-        Just z -> do
-            channels <- createAllChannels (lastSample sampleRate z) sampleRate z speakers
-            let out = force $ (map (map doubleToSample) $!! (transpose channels))
-            putWAVEFile outFile (WAVE waveheader out)
-            where   waveheader = WAVEHeader (length speakers) (round sampleRate) 16 Nothing
-        Nothing -> putStrLn "parse failed"
-
-main :: IO ()
--- main = do
---     args <- getArgs
---     case length args of
---         2 -> flattener spk (args !! 0) (args !! 1)
---         _ -> putStrLn "program takes two arguments"
-
-rayTraceLength (RayTrace _ impulses) = maximum $ map time impulses
-
-foldAll' step begin done = go begin
-  where
-    go x = do
-        ea <- draw
-        case ea of
-            Nothing -> return (done x)
-            Just a  -> go $! step x a
-
--- remember always the beauty of this function
--- actually don't because it's not strict in the argument to 'max' so
--- it gradually builds up thunks linearly with the number of raytraces
 lastSampleTimeForFile :: String -> IO Flt
-lastSampleTimeForFile f = withFile f ReadMode $ \hIn -> do
-    evalStateT parseLastSampleTime (P.fromHandle hIn)
-    where   parseLastSampleTime = zoom decoded (foldAll' maxSample 0 id)
+lastSampleTimeForFile f = 
+    withFile f ReadMode $ \hIn -> 
+    evalStateT (zoom decoded (foldAll maxSample 0 id)) (P.fromHandle hIn)
 
-maxSample = flip $ max . rayTraceLength
-
--- blah = withFile "/Users/reuben/Desktop/trace.json" ReadMode $ \hIn ->
---     decoded ^. (P.fromHandle hIn)
--- 
--- blah' = blah >> return ()
-
--- main' :: IO ()
--- main' = do
---     last <- purely fold $ maxSample 0 id blah
---     print $ show last
+maxSample = flip $ max . time . last . impulses
 
 channelForFile f l sr speaker = withFile f ReadMode $ \hIn -> do
     t <- newArray (0, l) (pure 0)
     evalStateT (parseChannel t sr speaker) (P.fromHandle hIn)
+
+produceRayTraces :: Producer P.ByteString IO () -> Producer RayTrace IO (Either (DecodingError, Producer P.ByteString IO ()) ())
+produceRayTraces = view decoded 
+
+produceRayTraces' :: Producer P.ByteString IO () -> Producer RayTrace IO ()
+produceRayTraces' p = produceRayTraces p >> return ()
+
+whatever f l sr speaker = withFile f ReadMode $ \hIn -> do
+    t <- newArray (0, l) (pure 0)
+    PP.foldM (\ _ rt -> channelForRayTrace sr rt speaker t) (return ()) return (produceRayTraces' $ P.fromHandle hIn)
+    return t
+
+whatever' f l sr speaker = withFile f ReadMode $ \hIn -> do
+    t <- newArray (0, l) (pure 0)
+    runEffect $ (produceRayTraces' $ P.fromHandle hIn) >-> (PP.mapM (\ rt -> channelForRayTrace sr rt speaker t)) >-> PP.drain
     return t
 
 parseChannel t sr speaker = 
     zoom decoded $ foldAllM 
         (\ _ rt -> channelForRayTrace sr rt speaker t) 
         (return ()) 
-        return
+        (\_ -> return t)
 
 createAndProcessChannelForFile :: String -> Int -> Flt -> Speaker -> IO (IOUArray Int Flt)
 createAndProcessChannelForFile f samples sr speaker = do
-    channel <- channelForFile f samples sr speaker
-    evalArray channel
+    channel <- whatever' f samples sr speaker
     bands <- splitBands channel
     filterBands sr bands
     out <- compileBands bands
-    evalArray out
     hipass sr 20 out
-    evalArray out
     return out
 
 createAllChannelsForFile :: String -> Flt -> [Speaker] -> IO [[Flt]]
@@ -119,13 +90,14 @@ flatten inFile speakers sampleRate bitDepth outFile = do
     putWAVEFile outFile (WAVE waveheader out)
     where   waveheader = WAVEHeader (length speakers) (round sampleRate) bitDepth Nothing
 
+main :: IO ()
 main = do
     args <- getArgs
     case length args of
---         2 -> 
---             flatten (args !! 0) spk 44100 16 (args !! 1)
-        2 -> do
-            last <- lastSampleTimeForFile (args !! 0)
-            print $ show last
+        2 -> 
+            flatten (args !! 0) spk 44100 16 (args !! 1)
+--         2 -> do
+--             last <- lastSampleTimeForFile (args !! 0)
+--             print $ show last
         _ -> putStrLn "program takes two arguments"
 
