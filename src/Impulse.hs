@@ -34,7 +34,7 @@ secondsPerMetre = 1 / speedOfSound
 constructImpulse :: P.Primitive -> R.Reflection -> Impulse
 constructImpulse source r =
     Impulse 
-        (force $ (secondsPerMetre * (R.distance r + magnitude diff - P.radius source)))
+        (force (secondsPerMetre * (R.distance r + magnitude diff - P.radius source)))
         (force (   if R.direct r 
                    then R.volume r
                    else pure (dot (R.normal r) (normalize diff)) * R.volume r * fmap diffuse (R.surface r)

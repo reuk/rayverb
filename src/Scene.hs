@@ -30,15 +30,15 @@ raytrace :: [P.Primitive] -> [P.Primitive] -> Flt -> Ray -> Flt -> C3 Flt -> [Im
 raytrace primitives sources threshold ray distance volume
     | all (< threshold) volume = []
     | isNothing maybeClosest = []
-    | primitiveIsSource prim = impulses
-    | otherwise = impulses ++ (force $ raytrace primitives sources threshold newRay newDist newVol)
+    | primitiveIsSource prim = impulsesAllSources
+    | otherwise = impulsesAllSources ++ force (raytrace primitives sources threshold newRay newDist newVol)
     where   maybeClosest = P.closest ray primitives
             prim = fromJust maybeClosest
             newRay = P.reflectFromPrimitive prim ray
             intersection = position newRay
             newDist = distance + magnitude (position ray - intersection)
             newVol = abop ((*) . specular) (P.surface prim) volume
-            impulses = force $ toImpulsesAllSources sources reflection
+            impulsesAllSources = force $ toImpulsesAllSources sources reflection
             reflection = force $ R.Reflection   (P.surface prim) 
                                                 intersection
                                                 (P.findNormal prim intersection)
@@ -66,6 +66,7 @@ data RayTrace = RayTrace Vec [Impulse]
 instance Directionable RayTrace where
     direction (RayTrace d _) = d
 
+impulses :: RayTrace -> [Impulse]
 impulses (RayTrace _ i) = i
 
 instance FromJSON RayTrace
@@ -89,12 +90,12 @@ trimRayTraces samples sampleRate =
     where   trimImpulses = filter ((>) samples . timeInSamples sampleRate)
 
 channelUpdateLoop :: Flt -> Flt -> [Impulse] -> IOArray Int (C3 Flt) -> IO ()
-channelUpdateLoop sr coeff impulses arr = 
-    mapM_ (\ x -> writeArray arr (timeInSamples sr x) (pure coeff * amplitude x)) impulses
+channelUpdateLoop sr coeff impulse arr = 
+    mapM_ (\ x -> writeArray arr (timeInSamples sr x) (pure coeff * amplitude x)) impulse
 
 channelForRayTrace :: Flt -> RayTrace -> Speaker -> IOArray Int (C3 Flt) -> IO ()
-channelForRayTrace sampleRate (RayTrace dir impulses) speaker = 
-    channelUpdateLoop sampleRate (attenuation speaker dir) impulses 
+channelForRayTrace sampleRate (RayTrace dir impulse) speaker = 
+    channelUpdateLoop sampleRate (attenuation speaker dir) impulse 
 
 channelForAllRayTraces :: Flt -> [RayTrace] -> Speaker -> IOArray Int (C3 Flt) -> IO ()
 channelForAllRayTraces sampleRate rt speaker arr = 
@@ -106,7 +107,7 @@ createChannel samples sampleRate raytraces speaker = do
     channelForAllRayTraces sampleRate raytraces speaker t
     return t
 
-boxedToUnboxed :: ((C3 Flt) -> Flt) -> IOArray Int (C3 Flt) -> IO (IOUArray Int Flt)
+boxedToUnboxed :: (C3 Flt -> Flt) -> IOArray Int (C3 Flt) -> IO (IOUArray Int Flt)
 boxedToUnboxed func arr = do
     elems <- getElems arr
     bounds <- getBounds arr
